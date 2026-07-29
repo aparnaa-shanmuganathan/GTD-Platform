@@ -11,6 +11,8 @@ Phases 0-3 are done: project foundation, the full database schema (Flyway migrat
 - **PostgreSQL 16** (for running the app locally against the `local` profile)
 - **Docker** (optional) — if available, integration tests use a real Testcontainers-managed PostgreSQL 16 container. If Docker is not available, tests automatically fall back to `io.zonky.test:embedded-postgres`, which runs a real (Docker-free) Postgres binary instead. Either way, tests run against genuine PostgreSQL, never H2.
 
+This project is developed cross-platform (Windows, Linux, macOS — `CLAUDE.md` §3) and has been audited to contain no OS-specific paths or shell assumptions in application code. **If you're setting this up on Windows, or moving between Windows and macOS/Linux, see `docs/WINDOWS-SETUP.md`** for prerequisite install notes and the couple of shell-syntax differences (mainly environment variable syntax).
+
 ## One-time local database setup
 
 The `local` Spring profile expects a PostgreSQL 16 instance on `localhost:5432` with a database named `gtd_platform`. Credentials are **never hardcoded** — they're read from environment variables.
