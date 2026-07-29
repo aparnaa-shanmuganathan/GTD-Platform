@@ -1,0 +1,16 @@
+# Test profile.
+#
+# Datasource connection properties are NOT set here - they are registered at
+# runtime by com.gtd.platform.testsupport.PostgresIntegrationTestBase via
+# @DynamicPropertySource, pointing at either a Testcontainers PostgreSQL 16
+# container (if Docker is available) or an io.zonky.test embedded-postgres
+# instance (Docker-free fallback) - see that class for the selection logic.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+logging:
+  level:
+    com.gtd.platform: INFO
+    org.testcontainers: INFO

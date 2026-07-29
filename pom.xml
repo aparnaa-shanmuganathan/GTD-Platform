@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.gtd.platform</groupId>
+    <artifactId>gtd-platform</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>gtd-platform</name>
+    <description>GTD Analytical Platform - offline Business Intelligence and Decision Support Platform</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!--
+            Every other dependency below is version-managed by spring-boot-starter-parent's
+            dependencyManagement (spring-boot-dependencies BOM), which pins exact versions
+            (never ranges) for spring-boot-starter-*, spring-session-jdbc (via spring-session-bom),
+            flyway-core/flyway-database-postgresql, the PostgreSQL JDBC driver, JUnit 5, Mockito,
+            AssertJ, and Testcontainers (via testcontainers-bom). io.zonky.test:embedded-postgres
+            is NOT covered by that BOM, so it is pinned explicitly below.
+        -->
+        <embedded-postgres.version>2.0.7</embedded-postgres.version>
+        <!-- CSV parsing (Phase 3, IMPORT service) - not covered by Spring Boot's BOM.
+             Added with the user's explicit sign-off; a hand-rolled parser risks silent
+             column misalignment on the real data's quoted/escaped summary/citation fields. -->
+        <commons-csv.version>1.10.0</commons-csv.version>
+    </properties>
+
+    <dependencies>
+        <!-- Core web / view layer -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- Persistence -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Schema migrations -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Ops / health -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Session management (JDBC-backed, no Redis - offline/air-gapped requirement) -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
+
+        <!-- CSV parsing for the IMPORT service (Phase 3) -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>${commons-csv.version}</version>
+        </dependency>
+
+        <!-- Auth: session-based login/logout, BCrypt password hashing, CSRF protection.
+             Not in CLAUDE.md's originally frozen stack list - added in Phase 2 with the
+             user's explicit sign-off rather than silently. See CLAUDE.md section 12. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>${embedded-postgres.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>gtd-platform</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

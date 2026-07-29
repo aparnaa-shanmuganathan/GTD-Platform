@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="home-shell">
+  <div class="home-card">
+    <div class="panel home-panel">
+      <div class="brand" style="justify-content:center;margin-bottom:18px;">
+        <div class="brand-mark"></div>
+        <div class="brand-text">
+          <span class="brand-title">GTD PLATFORM</span>
+          <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+        </div>
+      </div>
+      <p>Signed in as <span class="home-username" th:text="${username}">admin</span>.</p>
+      <p class="field-hint">Only the Executive Workspace is built so far (Phase 4) — the other 14 are still empty.</p>
+      <a th:href="@{/workspace/executive}" class="btn btn-primary btn-block" style="margin-top:18px;">Open Executive Workspace</a>
+      <form method="post" th:action="@{/logout}" style="margin-top:10px;">
+        <button type="submit" class="btn btn-block">Sign out</button>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

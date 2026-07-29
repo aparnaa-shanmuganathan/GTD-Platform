@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: gtd-platform
+
+  # Flyway owns schema management; Hibernate must never auto-generate DDL.
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  # JDBC-backed sessions (no Redis) for offline/air-gapped compatibility.
+  # spring_session/spring_session_attributes are created by Flyway
+  # (V6__admin_user_and_spring_session.sql, Phase 1), copied verbatim from
+  # Spring Session's own schema-postgresql.sql - so Spring Session's built-in
+  # initializer stays disabled (initialize-schema: never) to avoid a second,
+  # conflicting attempt to create the same tables. The cleanup cron, disabled
+  # in Phase 0 because the table didn't exist yet, is back to Spring Boot's
+  # default cadence now that it does.
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
+
+  # IMPORT service (Phase 3): the real GTD CSV is ~155MB. Limits sized with
+  # headroom above that; file-size-threshold=0 forces every upload straight
+  # to a temp file on disk rather than buffering in heap.
+  servlet:
+    multipart:
+      max-file-size: 250MB
+      max-request-size: 250MB
+      file-size-threshold: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# No active profile by default - one of "local" or "test" must be selected explicitly.

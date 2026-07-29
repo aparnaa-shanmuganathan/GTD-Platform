@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-topline">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div class="brand-text">
+          <span class="brand-title">GTD PLATFORM</span>
+          <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+    </div>
+
+    <div class="panel auth-panel">
+      <div th:if="${param.error}" class="alert alert-danger" role="alert">
+        <div>
+          <div class="alert-title">Sign-in failed</div>
+          <div class="alert-body">Invalid username or password.</div>
+        </div>
+      </div>
+      <div th:if="${param.logout}" class="alert" role="status" style="border-color:var(--green-dim);background:var(--green-soft);color:var(--green);">
+        <div>
+          <div class="alert-title">Signed out</div>
+          <div class="alert-body">You have been signed out.</div>
+        </div>
+      </div>
+
+      <form class="auth-form" method="post" th:action="@{/login}">
+        <div class="field">
+          <label for="username">Username</label>
+          <input class="input" type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </form>
+    </div>
+
+    <p class="auth-footnote">Session-based authentication — single administrator account, no external identity providers.</p>
+  </div>
+</div>
+<script>
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('gtd-theme', next);
+  });
+</script>
+</body>
+</html>

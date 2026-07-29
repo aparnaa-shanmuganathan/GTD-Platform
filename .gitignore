@@ -1,0 +1,36 @@
+# Build output
+target/
+*.class
+
+# Logs
+logs/
+*.log
+
+# Environment / secrets
+.env
+.env.*
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+bin/
+out/
+
+# Claude Code local settings - machine-specific (absolute paths, locally-approved
+# commands, and in this project's case a throwaway local dev DB password). Never
+# committed or carried across machines; Claude Code regenerates this per-machine.
+.claude/settings.local.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Real GTD dataset (large, licensed - never committed).
+# See RealFileImportPerformanceTest / README for how to provide it locally.
+/data/

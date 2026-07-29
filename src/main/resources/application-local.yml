@@ -1,0 +1,14 @@
+# Local development profile.
+#
+# Connects to a local PostgreSQL 16 instance. Credentials are NEVER hardcoded -
+# they come from environment variables. See README.md for setup instructions.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gtd_platform
+    username: ${GTD_DB_USERNAME}
+    password: ${GTD_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+logging:
+  level:
+    com.gtd.platform: DEBUG

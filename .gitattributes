@@ -1,0 +1,19 @@
+# Normalize line endings across macOS/Linux/Windows so git diffs never turn
+# into whole-file rewrites just because someone's editor uses CRLF.
+* text=auto eol=lf
+
+# Windows needs CRLF for its own native scripts (harmless on other OSes since
+# these aren't executed there).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets - never touched by line-ending normalization.
+*.jar binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.gz binary
+*.zip binary
