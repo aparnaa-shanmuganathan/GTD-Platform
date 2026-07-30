@@ -14,3 +14,10 @@ logging:
   level:
     com.gtd.platform: INFO
     org.testcontainers: INFO
+
+# Overrides application.yml's default (the OS user's real home directory) with a disposable
+# temp location, so running the test suite never writes real report files under a developer's
+# actual home directory.
+gtd:
+  reports:
+    directory: ${java.io.tmpdir}/gtd-platform-test-reports

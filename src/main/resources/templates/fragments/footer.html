@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  GTD attribution/citation footer (CLAUDE.md section 13, open item 1 - a
+  EULA obligation). A genuine Thymeleaf fragment, th:replace'd into every
+  workspace page, not copy-pasted per page like the topbar markup: this is
+  licensing-compliance text that must never drift between copies. The
+  citation/copyright strings themselves live in exactly one place,
+  com.gtd.platform.shared.reporting.GtdAttribution, read here via
+  Thymeleaf's T(...) class-reference expression and read directly in Java by
+  ReportPdfRenderer/ReportCsvRenderer - so a generated PDF/CSV report and
+  every live page always show the identical text.
+-->
+<footer class="gtd-attribution-footer" th:fragment="citation">
+  <p class="attribution-citation"
+     th:text="${T(com.gtd.platform.shared.reporting.GtdAttribution).CITATION}">
+    National Consortium for the Study of Terrorism and Responses to Terrorism (START), University of Maryland.
+    (2018). The Global Terrorism Database (GTD) [Data file]. Retrieved from https://www.start.umd.edu/gtd
+  </p>
+  <p class="attribution-copyright"
+     th:text="${T(com.gtd.platform.shared.reporting.GtdAttribution).COPYRIGHT}">
+    GTD data © National Consortium for the Study of Terrorism and Responses to Terrorism (START), University of
+    Maryland. All rights reserved.
+  </p>
+</footer>
+</body>
+</html>

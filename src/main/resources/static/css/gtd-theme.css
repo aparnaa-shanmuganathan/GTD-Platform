@@ -217,6 +217,7 @@ button{cursor:pointer;}
 .alert-title{font-size:13px;font-weight:600;margin-bottom:2px;}
 .alert-body{font-size:12.5px;color:var(--text-dim);}
 .alert-danger{border-color:var(--red-dim);background:var(--red-soft);color:var(--red);}
+.alert-success{border-color:var(--green-dim);background:var(--green-soft);color:var(--green);}
 
 /* ===== Theme toggle ===== */
 .icon-btn{
@@ -419,3 +420,33 @@ button{cursor:pointer;}
 .compare-kpi-mini-value{font-family:var(--mono);font-size:15px;font-weight:600;}
 .compare-chart-wrap{height:150px;position:relative;}
 .compare-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}
+
+/* ===== GTD attribution footer (Phase 6, every workspace - CLAUDE.md section 13 item 1) ===== */
+.gtd-attribution-footer{margin-top:32px;padding-top:14px;border-top:1px solid var(--border-soft);}
+.attribution-citation,.attribution-copyright{font-size:10.5px;color:var(--text-faint);margin:0 0 4px;line-height:1.5;}
+.attribution-copyright{margin-bottom:0;}
+
+/* ===== Data table + empty state (Phase 6, Report Workspace's history table) ===== */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md);}
+.table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px;}
+.table thead th{
+  position:sticky;top:0;background:var(--surface-2);color:var(--text-faint);
+  font-family:var(--mono);font-size:10px;letter-spacing:0.05em;text-transform:uppercase;
+  text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;
+}
+.table tbody td{padding:11px 14px;border-bottom:1px solid var(--border-soft);color:var(--text-dim);white-space:nowrap;}
+.table tbody tr:last-child td{border-bottom:none;}
+.table tbody tr{transition:background var(--dur-fast) var(--ease);}
+.table tbody tr:hover{background:var(--surface-2);}
+.table tbody td:first-child,.table thead th:first-child{color:var(--text);}
+
+.status-badge{font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:0.04em;}
+.status-badge.generated{background:var(--green-soft);color:var(--green);}
+.status-badge.failed{background:var(--red-soft);color:var(--red);}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:48px 24px;color:var(--text-dim);
+}
+.empty-state h3{font-size:14.5px;font-weight:600;color:var(--text);margin:0 0 6px;}
+.empty-state p{font-size:12.5px;max-width:340px;margin:0 0 16px;}

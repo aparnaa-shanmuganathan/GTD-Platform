@@ -69,10 +69,10 @@
     };
   }
 
-  function showToast(title, body) {
+  function showToast(title, body, isError) {
     var stack = qs('toastStack');
     var el = document.createElement('div');
-    el.className = 'alert alert-danger';
+    el.className = isError === false ? 'alert alert-success' : 'alert alert-danger';
     el.style.boxShadow = 'var(--shadow-lg)';
     el.innerHTML = '<div><div class="alert-title">' + escapeHtml(title) + '</div>'
         + '<div class="alert-body">' + escapeHtml(body) + '</div></div>';
@@ -296,8 +296,11 @@
           return resp.json();
         })
         .then(function (envelope) {
-          var message = (envelope.error && envelope.error.message) || 'Not yet implemented.';
-          showToast('Report generation', message);
+          if (envelope.success) {
+            showToast('Report generated', envelope.data.reportName + ' is ready - download it from the Report Workspace.', false);
+          } else {
+            showToast('Report generation failed', (envelope.error && envelope.error.message) || 'Unknown error');
+          }
         })
         .catch(function (err) {
           showToast('Report generation failed', String(err));

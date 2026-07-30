@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Report Workspace — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+    </div>
+  </div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-REPORT-001</div>
+        <div class="view-title">Report Workspace</div>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-chip">
+        <label for="filterDate">Date range</label>
+        <select id="filterDate">
+          <option value="full" th:text="${minYear != null ? minYear + ' – ' + maxYear + ' (full)' : 'Full range'}">Full range</option>
+          <option value="last10">Last 10 years</option>
+          <option value="last5">Last 5 years</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterRegion">Region</label>
+        <select id="filterRegion">
+          <option value="">All regions</option>
+          <option th:each="region : ${regions}" th:value="${region.id}" th:text="${region.name}"></option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterAttack">Attack type</label>
+        <select id="filterAttack">
+          <option value="">All types</option>
+          <option th:each="attackType : ${attackTypes}" th:value="${attackType.id}" th:text="${attackType.name}"></option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="panel-head">
+        <div class="panel-title">Generate new report</div>
+        <div class="panel-tag">REPORT &middot; SVC-COMPARE-free, reuses SVC-AGG/SVC-TREND/INSIGHT</div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="max-width:160px;">
+          <label for="reportFormat">Format</label>
+          <select id="reportFormat" class="input">
+            <option value="PDF">PDF</option>
+            <option value="CSV">CSV</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;min-width:220px;">
+          <label for="reportNameInput">Report name (optional)</label>
+          <input type="text" id="reportNameInput" class="input" placeholder="Auto-generated if left blank" />
+        </div>
+        <button class="btn btn-primary" id="generateReportBtn">Generate report</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Report history</div>
+        <div class="panel-tag">generated_report &middot; immutable</div>
+      </div>
+
+      <div id="emptyState" class="empty-state" th:if="${#lists.isEmpty(reports)}">
+        <h3>No reports yet</h3>
+        <p>Generate your first report above, or from the "Generate executive report" button in the Executive
+          Workspace - it will show up here.</p>
+      </div>
+
+      <div id="historyTableWrap" class="table-wrap" th:unless="${#lists.isEmpty(reports)}">
+        <table class="table">
+          <thead>
+            <tr><th>Name</th><th>Format</th><th>Dataset Version</th><th>Generated</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr th:each="report : ${reports}">
+              <td th:text="${report.reportName}">Executive Workspace Report</td>
+              <td th:text="${report.format}">PDF</td>
+              <td th:text="${report.datasetVersionLabel}">v1</td>
+              <td th:text="${#temporals.format(report.generatedAt, 'yyyy-MM-dd HH:mm')}">2026-01-01 00:00</td>
+              <td>
+                <span class="status-badge"
+                      th:classappend="${report.status == 'GENERATED'} ? 'generated' : 'failed'"
+                      th:text="${report.status}">GENERATED</span>
+              </td>
+              <td>
+                <button class="btn btn-sm download-btn" th:if="${report.status == 'GENERATED'}"
+                        th:attr="data-report-id=${report.id},data-report-name=${report.reportName},data-report-format=${report.format}">
+                  Download
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.MIN_YEAR = /*[[${minYear}]]*/ null;
+  window.MAX_YEAR = /*[[${maxYear}]]*/ null;
+  /*]]>*/
+</script>
+<script th:src="@{/js/report.js}"></script>
+</body>
+</html>

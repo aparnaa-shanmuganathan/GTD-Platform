@@ -120,11 +120,13 @@ class ExecutiveWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
         log.info("=== Phase 4 NFR result: filter apply (POST /api/executive/dashboard) took {} ms (target: <=2000ms) ===",
                 filterElapsed.toMillis());
 
-        // --- Report stub ---
+        // --- Report generation (Phase 6: wired to the real REPORT service) ---
         HttpResponse<String> reportResponse = client.postJson("/api/executive/report", cookie, csrfToken, "{}");
-        assertThat(reportResponse.statusCode()).isEqualTo(501);
+        assertThat(reportResponse.statusCode()).isEqualTo(200);
         JsonNode reportJson = JSON.readTree(reportResponse.body());
-        assertThat(reportJson.path("error").path("code").asText()).isEqualTo("ERR-REPORT-001");
+        assertThat(reportJson.path("success").asBoolean()).isTrue();
+        assertThat(reportJson.path("data").path("format").asText()).isEqualTo("PDF");
+        assertThat(reportJson.path("data").path("status").asText()).isEqualTo("GENERATED");
 
         assertThat(loadElapsed)
                 .withFailMessage("Dashboard load took %s, exceeding the 3s NFR target (CLAUDE.md section 10)", loadElapsed)

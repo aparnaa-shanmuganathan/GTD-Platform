@@ -96,6 +96,19 @@ public final class FormLoginClient {
                 HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Same request shape as {@link #postJson}, but for endpoints that return raw bytes (e.g. a PDF/CSV file download) rather than JSON text. */
+    public HttpResponse<byte[]> postJsonForBytes(String path, String cookie, String csrfToken, String jsonBody)
+            throws IOException, InterruptedException {
+        return httpClient.send(
+                HttpRequest.newBuilder(URI.create(baseUrl + path))
+                        .header("Content-Type", "application/json")
+                        .header("X-CSRF-TOKEN", csrfToken)
+                        .header("Cookie", cookie)
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+    }
+
     /** POSTs a single file plus simple string fields as multipart/form-data. */
     public HttpResponse<String> uploadMultipart(String path, String cookie, String csrfToken,
             String fileFieldName, String fileName, byte[] fileContent, String fileContentType,

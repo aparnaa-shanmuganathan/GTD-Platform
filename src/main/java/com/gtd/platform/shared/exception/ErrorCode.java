@@ -63,9 +63,20 @@ public enum ErrorCode {
     ERR_REQUEST_002("ERR-REQUEST-002", Category.REQUEST,
             "Request body is malformed or unreadable", HttpStatus.BAD_REQUEST),
 
-    // --- REPORT: report generation (stubbed until Phase 6) ---
+    // --- REPORT: report generation ---
+    // ERR_REPORT_001 was the Phase 4 "not yet implemented" stub for the Executive Workspace's
+    // report button; kept defined (never renumbered/repurposed, per this class's own Javadoc)
+    // even though no code path throws it anymore as of Phase 6's real implementation below.
     ERR_REPORT_001("ERR-REPORT-001", Category.REPORT,
             "Report generation is not yet implemented", HttpStatus.NOT_IMPLEMENTED),
+    ERR_REPORT_002("ERR-REPORT-002", Category.REPORT,
+            "No active dataset version - import and confirm data before generating a report", HttpStatus.CONFLICT),
+    ERR_REPORT_003("ERR-REPORT-003", Category.REPORT,
+            "Report generation failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    ERR_REPORT_004("ERR-REPORT-004", Category.REPORT,
+            "Report not found", HttpStatus.NOT_FOUND),
+    ERR_REPORT_005("ERR-REPORT-005", Category.REPORT,
+            "This report has no downloadable file (a failed or incomplete generation)", HttpStatus.CONFLICT),
 
     // --- COMPARE: SVC-COMPARE country comparison / drill-down (Phase 5) ---
     ERR_COMPARE_001("ERR-COMPARE-001", Category.COMPARE,

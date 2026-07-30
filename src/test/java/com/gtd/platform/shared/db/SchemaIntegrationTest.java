@@ -104,6 +104,14 @@ class SchemaIntegrationTest extends PostgresIntegrationTestBase {
 
     @Test
     void exactlyOneActiveDatasetVersionConstraintRejectsSecondActiveRow() {
+        // Other test classes sharing this same database (no rollback between them - see
+        // PostgresIntegrationTestBase) may have already activated their own dataset_version
+        // and left it active (a real import-confirm flow deactivates any prior one before
+        // activating a new one, but never leaves zero active versions). Clear that first so
+        // this test's own "first" insert below is guaranteed to be the only active row,
+        // not itself an unexpected constraint violation.
+        jdbcTemplate.update("UPDATE dataset_version SET is_active = false WHERE is_active = true");
+
         ImportBatch batch = persistImportBatch();
 
         DatasetVersion first = new DatasetVersion();

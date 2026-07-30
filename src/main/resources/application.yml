@@ -46,4 +46,12 @@ management:
     health:
       show-details: when-authorized
 
+# REPORT service (Phase 6): where generated PDF/CSV report files are written and read back
+# from for download. Under the OS user's home directory by default (never a temp directory -
+# generated_report rows are immutable and permanent, so the files they point at must be too);
+# the test profile overrides this to a disposable temp directory (application-test.yml).
+gtd:
+  reports:
+    directory: ${user.home}/.gtd-platform/reports
+
 # No active profile by default - one of "local" or "test" must be selected explicitly.

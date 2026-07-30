@@ -27,6 +27,30 @@ import java.io.UncheckedIOException;
  * <p>Subclasses just need {@code @SpringBootTest} and
  * {@code @ActiveProfiles("test")}; datasource properties are registered here
  * via {@link DynamicPropertySource} before the Spring context starts.
+ *
+ * <p><b>Exactly one container/embedded instance for the entire test JVM,
+ * ever - never one per distinct Spring context configuration.</b> {@code
+ * container}/{@code embeddedPostgres} are {@code static}, so they are shared
+ * by every subclass regardless of which Spring context (e.g. plain {@code
+ * @SpringBootTest} vs {@code webEnvironment = RANDOM_PORT}) it boots -
+ * {@link DynamicPropertySource} methods re-run fresh for each distinct
+ * context configuration, though, so without the {@code if (container ==
+ * null ...)} guard below, a second (differently-configured) test class
+ * starting up would silently start a brand-new instance and overwrite these
+ * static fields out from under any other context still alive and using the
+ * old one. That is exactly what caused {@code SessionPersistenceAcrossRestartTest}
+ * to intermittently fail once enough test classes existed for Surefire's
+ * natural ordering to interleave a non-{@code RANDOM_PORT} test between two
+ * {@code RANDOM_PORT} ones: that test reads {@code spring.datasource.url}
+ * live off the (cached, reused) {@code RANDOM_PORT} context's {@code
+ * Environment} to boot a second, independent app instance against "the same
+ * database" - but {@code DynamicPropertySource}-registered properties are
+ * lazily re-evaluated {@code Supplier}s, not values snapshotted once, so
+ * that lookup silently returned whichever instance the static field pointed
+ * to *at that moment* (possibly a different, unrelated one started meanwhile
+ * by the interleaved test), rather than the one the RANDOM_PORT context's
+ * own already-running {@code HikariDataSource} was actually connected to.
+ * See CLAUDE.md section 12, Phase 6 decisions, for the full incident.
  */
 @ActiveProfiles("test")
 public abstract class PostgresIntegrationTestBase {
@@ -39,21 +63,27 @@ public abstract class PostgresIntegrationTestBase {
 
     @DynamicPropertySource
     static void registerDatasourceProperties(DynamicPropertyRegistry registry) {
-        if (isDockerAvailable()) {
-            log.info("Docker detected - using Testcontainers PostgreSQL ({})", POSTGRES_IMAGE);
-            container = new PostgreSQLContainer<>(DockerImageName.parse(POSTGRES_IMAGE));
-            container.start();
+        if (container == null && embeddedPostgres == null) {
+            if (isDockerAvailable()) {
+                log.info("Docker detected - using Testcontainers PostgreSQL ({})", POSTGRES_IMAGE);
+                container = new PostgreSQLContainer<>(DockerImageName.parse(POSTGRES_IMAGE));
+                container.start();
+            } else {
+                log.info("Docker not available - falling back to io.zonky.test embedded-postgres");
+                try {
+                    embeddedPostgres = EmbeddedPostgres.builder().start();
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Failed to start embedded Postgres for tests", e);
+                }
+            }
+        }
+
+        if (container != null) {
             registry.add("spring.datasource.url", container::getJdbcUrl);
             registry.add("spring.datasource.username", container::getUsername);
             registry.add("spring.datasource.password", container::getPassword);
             registry.add("spring.datasource.driver-class-name", container::getDriverClassName);
         } else {
-            log.info("Docker not available - falling back to io.zonky.test embedded-postgres");
-            try {
-                embeddedPostgres = EmbeddedPostgres.builder().start();
-            } catch (IOException e) {
-                throw new UncheckedIOException("Failed to start embedded Postgres for tests", e);
-            }
             registry.add("spring.datasource.url",
                     () -> embeddedPostgres.getJdbcUrl("postgres", "postgres"));
             registry.add("spring.datasource.username", () -> "postgres");

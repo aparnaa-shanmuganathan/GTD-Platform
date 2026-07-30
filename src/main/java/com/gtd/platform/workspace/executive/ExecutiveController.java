@@ -3,14 +3,20 @@ package com.gtd.platform.workspace.executive;
 import com.gtd.platform.service.agg.KpiAggregationService;
 import com.gtd.platform.service.agg.RankingAndBreakdownService;
 import com.gtd.platform.service.insight.InsightService;
+import com.gtd.platform.service.report.ReportGenerationService;
+import com.gtd.platform.service.report.ReportSummary;
 import com.gtd.platform.service.trend.TrendService;
 import com.gtd.platform.shared.api.AnalyticalFilterRequest;
 import com.gtd.platform.shared.api.ApiResponse;
+import com.gtd.platform.shared.auth.AdminUser;
+import com.gtd.platform.shared.auth.AdminUserRepository;
 import com.gtd.platform.shared.db.DimAttackTypeRepository;
 import com.gtd.platform.shared.db.DimRegionRepository;
-import com.gtd.platform.shared.exception.ApiException;
-import com.gtd.platform.shared.exception.ErrorCode;
+import com.gtd.platform.shared.reporting.GeneratedReport.Format;
 import java.security.Principal;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
@@ -37,22 +43,29 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class ExecutiveController {
 
+    private static final DateTimeFormatter DEFAULT_NAME_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     private final KpiAggregationService kpiAggregationService;
     private final TrendService trendService;
     private final RankingAndBreakdownService rankingAndBreakdownService;
     private final InsightService insightService;
+    private final ReportGenerationService reportGenerationService;
+    private final AdminUserRepository adminUserRepository;
     private final JdbcTemplate jdbcTemplate;
     private final DimRegionRepository regionRepository;
     private final DimAttackTypeRepository attackTypeRepository;
 
     public ExecutiveController(KpiAggregationService kpiAggregationService, TrendService trendService,
             RankingAndBreakdownService rankingAndBreakdownService, InsightService insightService,
+            ReportGenerationService reportGenerationService, AdminUserRepository adminUserRepository,
             JdbcTemplate jdbcTemplate, DimRegionRepository regionRepository,
             DimAttackTypeRepository attackTypeRepository) {
         this.kpiAggregationService = kpiAggregationService;
         this.trendService = trendService;
         this.rankingAndBreakdownService = rankingAndBreakdownService;
         this.insightService = insightService;
+        this.reportGenerationService = reportGenerationService;
+        this.adminUserRepository = adminUserRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.regionRepository = regionRepository;
         this.attackTypeRepository = attackTypeRepository;
@@ -93,11 +106,24 @@ public class ExecutiveController {
         return ApiResponse.success(buildDashboard(effectiveFilter));
     }
 
-    /** Stub per Phase 4 scope - the full REPORT service is Phase 6. */
+    /**
+     * Wired to the real REPORT service as of Phase 6 (was an ERR-REPORT-001
+     * stub in Phase 4). Always generates a PDF - a single-click "give me a
+     * PDF of what I'm looking at right now" action; a user who specifically
+     * wants CSV or wants to name the report themselves uses the Report
+     * Workspace's own generate flow instead, which offers both.
+     */
     @PostMapping("/api/executive/report")
     @ResponseBody
-    public ApiResponse<Void> generateReport(@RequestBody(required = false) AnalyticalFilterRequest filter) {
-        throw new ApiException(ErrorCode.ERR_REPORT_001);
+    public ApiResponse<ReportSummary> generateReport(@RequestBody(required = false) AnalyticalFilterRequest filter,
+            Principal principal) {
+        Long adminUserId = adminUserRepository.findByUsername(principal.getName())
+                .map(AdminUser::getId)
+                .orElse(null);
+        String reportName = "Executive Workspace Report — "
+                + DEFAULT_NAME_TIMESTAMP.format(Instant.now().atZone(ZoneOffset.UTC));
+        ReportSummary summary = reportGenerationService.generate(filter, Format.PDF, reportName, adminUserId);
+        return ApiResponse.success(summary);
     }
 
     private ExecutiveDashboardResponse buildDashboard(AnalyticalFilterRequest filter) {

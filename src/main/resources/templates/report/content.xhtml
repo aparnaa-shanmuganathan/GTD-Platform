@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+<title th:text="${reportName}">Report</title>
+<style type="text/css">
+  /*
+    Flying Saucer's CSS engine does not support custom properties (var(--x))
+    or webfonts beyond what its font resolver is configured for (only the
+    vendored woff2 files exist - see ReportPdfRenderer's Javadoc), so this is
+    a small, self-contained stylesheet with literal values, not a reuse of
+    gtd-theme.css: same light-theme color values, PDF built-in fonts only.
+  */
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #161A22; margin: 0; }
+  h1 { font-size: 16pt; margin: 0 0 4px; }
+  h2 { font-size: 12pt; color: #93710E; text-transform: uppercase; letter-spacing: 0.05em;
+       border-bottom: 1px solid #DEE1E8; padding-bottom: 4px; margin: 18px 0 8px; }
+  .meta { font-size: 9pt; color: #525A67; margin: 2px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  th { text-align: left; font-size: 8.5pt; color: #7C8493; text-transform: uppercase;
+       border-bottom: 1px solid #DEE1E8; padding: 4px 6px; }
+  td { font-size: 9.5pt; padding: 4px 6px; border-bottom: 1px solid #E8EAEF; }
+  .num { text-align: right; font-family: Courier, monospace; }
+  .bar-track { width: 100px; background-color: #E8EAEF; height: 8px; }
+  .bar-fill { background-color: #2E5CA6; height: 8px; }
+  .insight { padding: 6px 8px; margin-bottom: 6px; background-color: #F4F5F8;
+             border-left: 3px solid #2E5CA6; }
+  .insight-flag { border-left-color: #AD3A31; }
+  .insight-meta { font-size: 8pt; color: #7C8493; margin-top: 2px; }
+  .empty { font-size: 9pt; color: #7C8493; font-style: italic; }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #DEE1E8;
+            font-size: 7.5pt; color: #7C8493; }
+</style>
+</head>
+<body>
+
+<h1 th:text="${reportName}">Executive Workspace Report</h1>
+<p class="meta" th:text="'Generated ' + ${generatedAtDisplay}">Generated 2026-01-01 00:00 UTC</p>
+<p class="meta" th:text="'Dataset version: ' + ${datasetVersionLabel}">Dataset version: v1</p>
+<p class="meta" th:text="'Filters: ' + ${filterSummary}">Filters: Full dataset</p>
+
+<h2>Key Performance Indicators</h2>
+<table>
+  <tr><th>Metric</th><th>SAV ID</th><th class="num">Value</th><th>Trend</th></tr>
+  <tr th:each="kpi : ${kpiRows}">
+    <td th:text="${kpi.label}">Total incidents</td>
+    <td th:text="${kpi.savId}">SAV-001</td>
+    <td class="num" th:text="${kpi.valueDisplay}">1,234</td>
+    <td th:text="${kpi.deltaLabel} ?: '—'">+5.0%</td>
+  </tr>
+</table>
+
+<h2>Top Countries by Incident Count</h2>
+<p class="empty" th:if="${#lists.isEmpty(rankingRows)}">No data available for the selected filters.</p>
+<table th:unless="${#lists.isEmpty(rankingRows)}">
+  <tr><th>Rank</th><th>Country</th><th class="num">Incidents</th><th class="num">Share</th><th></th></tr>
+  <tr th:each="row : ${rankingRows}">
+    <td th:text="${row.rank}">1</td>
+    <td th:text="${row.label}">United States</td>
+    <td class="num" th:text="${row.value}">376</td>
+    <td class="num" th:text="${row.sharePercent}">12.5%</td>
+    <td><div class="bar-track"><div class="bar-fill" th:style="'width:' + ${row.barPercent} + 'px'"></div></div></td>
+  </tr>
+</table>
+
+<h2>Incidents by Year</h2>
+<p class="empty" th:if="${#lists.isEmpty(trendRows)}">No data available for the selected filters.</p>
+<table th:unless="${#lists.isEmpty(trendRows)}">
+  <tr><th>Year</th><th class="num">Incidents</th><th></th></tr>
+  <tr th:each="row : ${trendRows}">
+    <td th:text="${row.year}">2020</td>
+    <td class="num" th:text="${row.value}">150</td>
+    <td><div class="bar-track"><div class="bar-fill" th:style="'width:' + ${row.barPercent} + 'px'"></div></div></td>
+  </tr>
+</table>
+
+<h2>Attack Type Breakdown</h2>
+<p class="empty" th:if="${#lists.isEmpty(attackRows)}">No data available for the selected filters.</p>
+<table th:unless="${#lists.isEmpty(attackRows)}">
+  <tr><th>Attack Type</th><th class="num">Incidents</th><th></th></tr>
+  <tr th:each="row : ${attackRows}">
+    <td th:text="${row.label}">Bombing/Explosion</td>
+    <td class="num" th:text="${row.value}">500</td>
+    <td><div class="bar-track"><div class="bar-fill" th:style="'width:' + ${row.barPercent} + 'px'"></div></div></td>
+  </tr>
+</table>
+
+<h2>Weapon Type Breakdown</h2>
+<p class="empty" th:if="${#lists.isEmpty(weaponRows)}">No data available for the selected filters.</p>
+<table th:unless="${#lists.isEmpty(weaponRows)}">
+  <tr><th>Weapon Type</th><th class="num">Incidents</th><th></th></tr>
+  <tr th:each="row : ${weaponRows}">
+    <td th:text="${row.label}">Explosives</td>
+    <td class="num" th:text="${row.value}">500</td>
+    <td><div class="bar-track"><div class="bar-fill" th:style="'width:' + ${row.barPercent} + 'px'"></div></div></td>
+  </tr>
+</table>
+
+<h2>Target Type Breakdown</h2>
+<p class="empty" th:if="${#lists.isEmpty(targetRows)}">No data available for the selected filters.</p>
+<table th:unless="${#lists.isEmpty(targetRows)}">
+  <tr><th>Target Type</th><th class="num">Incidents</th><th></th></tr>
+  <tr th:each="row : ${targetRows}">
+    <td th:text="${row.label}">Business</td>
+    <td class="num" th:text="${row.value}">500</td>
+    <td><div class="bar-track"><div class="bar-fill" th:style="'width:' + ${row.barPercent} + 'px'"></div></div></td>
+  </tr>
+</table>
+
+<h2>Insights</h2>
+<p class="empty" th:if="${#lists.isEmpty(insightRows)}">No insights available for the selected filters.</p>
+<div th:each="row : ${insightRows}" th:class="${row.severity == 'FLAG'} ? 'insight insight-flag' : 'insight'">
+  <div th:utext="${row.text}">Insight text</div>
+  <div class="insight-meta" th:if="${row.meta != null}" th:text="${row.meta}">Meta</div>
+</div>
+
+<div class="footer">
+  <p th:text="${citation}">Citation</p>
+  <p th:text="${copyright}">Copyright</p>
+</div>
+
+</body>
+</html>
