@@ -376,3 +376,46 @@ button{cursor:pointer;}
   .panels-row{grid-template-columns:1fr;}
   .charts-row{grid-template-columns:1fr;}
 }
+
+/* =====================================================================
+   TABS (Phase 5, Country Workspace)
+   Ported from reference/gtd-platform-demo.html's .tabs/.tablist/.tab -
+   the Country Workspace's Ranking/Compare/Country trend sections are three
+   client-side-only tabs of one page (no URL/history state - CLAUDE.md
+   section 12), reusing the demo's tab visual language rather than a
+   new one-off control.
+   ===================================================================== */
+.tabs{margin-bottom:18px;}
+.tablist{display:flex;gap:4px;border-bottom:1px solid var(--border);}
+.tab{
+  padding:10px 16px;font-size:12.5px;font-weight:600;color:var(--text-faint);
+  background:transparent;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:color var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease);
+}
+.tab:hover{color:var(--text-dim);}
+.tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--brass);}
+.tab:disabled{opacity:0.4;cursor:not-allowed;}
+.tabpanel{padding-top:16px;}
+.tabpanel[hidden]{display:none;}
+
+/* ===== Checkbox row (ported from the demo's report-modal checklist) ===== */
+.checkbox-row{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-dim);padding:5px 0;}
+.checkbox-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--brass);flex-shrink:0;}
+.checkbox-row input[type="checkbox"]:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* ===== Clickable ranking rows (Country Workspace's ranking -> drill-down) ===== */
+.rank-row.is-clickable{cursor:pointer;border-radius:var(--radius-sm);transition:background var(--dur-fast) var(--ease);}
+.rank-row.is-clickable:hover{background:var(--surface-2);}
+
+/* ===== Country comparison (SVC-COMPARE) ===== */
+.compare-picker{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:6px;margin-bottom:12px;}
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+.compare-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px 16px;}
+.compare-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;}
+.compare-card-title{font-size:13.5px;font-weight:600;}
+.compare-kpi-mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+.compare-kpi-mini{background:var(--surface-2);border-radius:var(--radius-sm);padding:8px 10px;}
+.compare-kpi-mini-label{font-size:10px;color:var(--text-faint);margin-bottom:3px;}
+.compare-kpi-mini-value{font-family:var(--mono);font-size:15px;font-weight:600;}
+.compare-chart-wrap{height:150px;position:relative;}
+.compare-empty{font-size:12.5px;color:var(--text-faint);padding:8px 0;}

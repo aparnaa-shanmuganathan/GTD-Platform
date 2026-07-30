@@ -12,13 +12,8 @@ import com.gtd.platform.testsupport.PostgresIntegrationTestBase;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,10 +34,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  *   HTTP upload attempted while it's held gets {@code 409}/{@code ERR-IMPORT-003}
  *   with no {@code import_batch} row created for the rejected attempt.</li>
  *   <li>{@link #concurrentRealUploadsYieldExactlyOneAcceptedAttempt} - a
- *   genuine two-thread race between two real uploads, using a CSV large
- *   enough (20k generated rows) that the first import's processing window
- *   comfortably outlasts the moment the second request arrives, so the
- *   result isn't timing-flaky.</li>
+ *   real second upload sent while a large (20k-row) real upload's background
+ *   job is confirmed still in flight (polled via {@code /api/import/status},
+ *   not assumed from wall-clock timing), asserting it is rejected the same
+ *   way.</li>
  * </ul>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -111,6 +106,12 @@ class ImportConcurrencyTest extends PostgresIntegrationTestBase {
                 "file", "unblocked.csv", generateCsv(5).getBytes(StandardCharsets.UTF_8), "text/csv",
                 Map.of("mode", "APPEND"));
         assertThat(afterRelease.statusCode()).isEqualTo(202);
+
+        // Wait for this import to finish and release the lock before the
+        // test returns, so it can't leak a held lock into the next test
+        // against this same shared database.
+        long afterReleaseBatchId = JSON.readTree(afterRelease.body()).path("data").path("importBatchId").asLong();
+        awaitTerminalStatus(afterReleaseBatchId);
     }
 
     @Test
@@ -118,33 +119,56 @@ class ImportConcurrencyTest extends PostgresIntegrationTestBase {
         byte[] largeCsv = generateCsv(20_000).getBytes(StandardCharsets.UTF_8);
         byte[] smallCsv = generateCsv(5).getBytes(StandardCharsets.UTF_8);
 
-        ExecutorService pool = Executors.newFixedThreadPool(2);
-        CountDownLatch startGate = new CountDownLatch(1);
-        try {
-            Future<HttpResponse<String>> first = pool.submit(() -> {
-                startGate.await();
-                return client.uploadMultipart("/api/import/upload", cookie, csrfToken,
-                        "file", "large.csv", largeCsv, "text/csv", Map.of("mode", "APPEND"));
-            });
-            Future<HttpResponse<String>> second = pool.submit(() -> {
-                startGate.await();
-                return client.uploadMultipart("/api/import/upload", cookie, csrfToken,
-                        "file", "small.csv", smallCsv, "text/csv", Map.of("mode", "APPEND"));
-            });
+        // A literal two-thread race here (both requests fired at once, racing
+        // to be first to reach pg_try_advisory_lock) is inherently flaky: if
+        // the small upload's negligible work lets it acquire and release the
+        // lock before the large upload's request even finishes writing its
+        // staged file, both attempts can legitimately observe the lock free
+        // and both get 202. So instead: send the large upload first and wait
+        // for its response - which only arrives once ImportOrchestrationService
+        // has already acquired the lock synchronously - then poll its status
+        // to confirm the background job is genuinely still in flight (a
+        // non-terminal state) before sending the second upload. That proves
+        // the same guarantee (a second attempt while an import is running is
+        // rejected) without betting on wall-clock scheduling.
+        HttpResponse<String> firstResponse = client.uploadMultipart("/api/import/upload", cookie, csrfToken,
+                "file", "large.csv", largeCsv, "text/csv", Map.of("mode", "APPEND"));
+        assertThat(firstResponse.statusCode()).isEqualTo(202);
+        long firstBatchId = JSON.readTree(firstResponse.body()).path("data").path("importBatchId").asLong();
 
-            startGate.countDown();
-            HttpResponse<String> firstResponse = first.get(30, TimeUnit.SECONDS);
-            HttpResponse<String> secondResponse = second.get(30, TimeUnit.SECONDS);
+        assertThat(pollStatus(firstBatchId)).isIn("PENDING", "STAGING", "NORMALIZING");
 
-            List<Integer> statusCodes = List.of(firstResponse.statusCode(), secondResponse.statusCode());
-            assertThat(statusCodes).containsExactlyInAnyOrder(202, 409);
+        HttpResponse<String> secondResponse = client.uploadMultipart("/api/import/upload", cookie, csrfToken,
+                "file", "small.csv", smallCsv, "text/csv", Map.of("mode", "APPEND"));
 
-            HttpResponse<String> rejected = (firstResponse.statusCode() == 409) ? firstResponse : secondResponse;
-            JsonNode rejectedBody = JSON.readTree(rejected.body());
-            assertThat(rejectedBody.path("error").path("code").asText()).isEqualTo("ERR-IMPORT-003");
-        } finally {
-            pool.shutdownNow();
+        assertThat(secondResponse.statusCode()).isEqualTo(409);
+        JsonNode rejectedBody = JSON.readTree(secondResponse.body());
+        assertThat(rejectedBody.path("success").asBoolean()).isFalse();
+        assertThat(rejectedBody.path("error").path("code").asText()).isEqualTo("ERR-IMPORT-003");
+
+        // Wait for the large import to actually finish and release the lock
+        // before the test returns - otherwise it leaks a held advisory lock
+        // into whichever test runs next against this same shared database.
+        awaitTerminalStatus(firstBatchId);
+    }
+
+    private String pollStatus(long importBatchId) throws Exception {
+        HttpResponse<String> response = client.postJson("/api/import/status", cookie, csrfToken,
+                "{\"importBatchId\":" + importBatchId + "}");
+        assertThat(response.statusCode()).isEqualTo(200);
+        return JSON.readTree(response.body()).path("data").path("status").asText();
+    }
+
+    private void awaitTerminalStatus(long importBatchId) throws Exception {
+        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        while (System.currentTimeMillis() < deadline) {
+            String status = pollStatus(importBatchId);
+            if (status.equals("AWAITING_CONFIRMATION") || status.equals("FAILED")) {
+                return;
+            }
+            Thread.sleep(50);
         }
+        throw new AssertionError("Import batch " + importBatchId + " did not reach a terminal status in time");
     }
 
     private static String generateCsv(int rowCount) {

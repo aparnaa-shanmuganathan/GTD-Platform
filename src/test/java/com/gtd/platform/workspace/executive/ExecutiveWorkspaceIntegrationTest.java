@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -38,6 +40,7 @@ class ExecutiveWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
 
     private static final Logger log = LoggerFactory.getLogger(ExecutiveWorkspaceIntegrationTest.class);
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Pattern KPI_INCIDENTS_VALUE = Pattern.compile("\"id\":\"kpiIncidents\".*?\"value\":(\\d+)");
     private static final int ROW_COUNT = 10_000;
     private static final String CSV_HEADER = "eventid,iyear,imonth,iday,country_txt,region_txt,provstate,city,"
             + "latitude,longitude,summary,target1,attacktype1_txt,weaptype1_txt,targtype1_txt,gname,nkill,nwound,"
@@ -86,10 +89,14 @@ class ExecutiveWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
         assertThat(pageResponse.statusCode()).isEqualTo(200);
         String body = pageResponse.body();
         assertThat(body).contains("Executive Workspace");
-        // The unfiltered total must reflect the real imported row count, not zero/mock data.
-        assertThat(body).contains("\"value\":" + ROW_COUNT);
         assertThat(body).contains("kpiIncidents");
         assertThat(body).contains("countryRanking");
+        // The unfiltered total must reflect at least the real imported row count, not zero/mock
+        // data - ">=" rather than "==" because this dashboard is genuinely unfiltered, and other
+        // integration test classes (e.g. the Country Workspace's) share this same test database
+        // and may have imported their own real rows into it too (no rollback between test
+        // classes here - see PostgresIntegrationTestBase).
+        assertThat(extractKpiIncidentsValue(body)).isGreaterThanOrEqualTo(ROW_COUNT);
 
         log.info("=== Phase 4 NFR result: dashboard load (GET /workspace/executive) took {} ms (target: <=3000ms) ===",
                 loadElapsed.toMillis());
@@ -151,6 +158,15 @@ class ExecutiveWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
         HttpResponse<String> confirmResponse = client.postJson("/api/import/confirm", cookie, csrfToken,
                 "{\"importBatchId\":" + batchId + "}");
         assertThat(confirmResponse.statusCode()).isEqualTo(200);
+    }
+
+    /** Pulls {@code kpiIncidents}'s value out of the page's embedded {@code window.INITIAL_DASHBOARD} JSON. */
+    private static long extractKpiIncidentsValue(String pageBody) {
+        Matcher matcher = KPI_INCIDENTS_VALUE.matcher(pageBody);
+        if (!matcher.find()) {
+            throw new IllegalStateException("No kpiIncidents value found in page body");
+        }
+        return Long.parseLong(matcher.group(1));
     }
 
     private static String generateCsv(int rowCount) {

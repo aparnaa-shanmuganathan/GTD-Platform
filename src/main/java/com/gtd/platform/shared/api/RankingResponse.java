@@ -19,7 +19,9 @@ public record RankingResponse(String id, String title, List<RankingEntry> entrie
      * @param label        the ranked entity's display name (e.g. a country name)
      * @param value        the value it's ranked by
      * @param shareOfTotal this entry's value as a fraction of the total across all entries (0-1), or {@code null} if not applicable
+     * @param entityId     the ranked entity's surrogate id (e.g. a {@code dim_country} id) - added in Phase 5 so a
+     *                     ranking row can be the target of a drill-down/comparison action, not just displayed
      */
-    public record RankingEntry(int rank, String label, BigDecimal value, BigDecimal shareOfTotal) {
+    public record RankingEntry(int rank, String label, BigDecimal value, BigDecimal shareOfTotal, Long entityId) {
     }
 }

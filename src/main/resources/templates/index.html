@@ -24,8 +24,9 @@
         </div>
       </div>
       <p>Signed in as <span class="home-username" th:text="${username}">admin</span>.</p>
-      <p class="field-hint">Only the Executive Workspace is built so far (Phase 4) — the other 14 are still empty.</p>
+      <p class="field-hint">Executive and Country Workspaces are built so far (Phases 4-5) — the other 13 are still empty.</p>
       <a th:href="@{/workspace/executive}" class="btn btn-primary btn-block" style="margin-top:18px;">Open Executive Workspace</a>
+      <a th:href="@{/workspace/country}" class="btn btn-block" style="margin-top:10px;">Open Country Workspace</a>
       <form method="post" th:action="@{/logout}" style="margin-top:10px;">
         <button type="submit" class="btn btn-block">Sign out</button>
       </form>

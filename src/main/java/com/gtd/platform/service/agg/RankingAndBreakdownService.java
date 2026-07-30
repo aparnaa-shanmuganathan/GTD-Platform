@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class RankingAndBreakdownService {
 
+    /** The Executive Workspace's compact widget default (Phase 4) - kept as the no-arg overload's behavior unchanged. */
     private static final int TOP_COUNTRIES = 10;
 
     private final JdbcTemplate jdbcTemplate;
@@ -43,17 +44,28 @@ public class RankingAndBreakdownService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /** Executive Workspace's compact top-10 widget (Phase 4) - see {@link #topCountriesByIncidentCount(AnalyticalFilterRequest, int)} for a caller-chosen limit. */
     public RankingResponse topCountriesByIncidentCount(AnalyticalFilterRequest filter) {
+        return topCountriesByIncidentCount(filter, TOP_COUNTRIES);
+    }
+
+    /**
+     * Same CAC-AN-002 ranking, with a caller-chosen cutoff - added in Phase 5 so the
+     * Country Workspace's dedicated ranking view can show a fuller list than the
+     * Executive Workspace's compact 10-row widget, without changing that widget's
+     * existing behavior.
+     */
+    public RankingResponse topCountriesByIncidentCount(AnalyticalFilterRequest filter, int limit) {
         List<CategoryCount> all = queryBreakdown(filter, "mv_country_year_agg", "country_id", "dim_country", false);
         BigDecimal grandTotal = all.stream().map(CategoryCount::value).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<RankingEntry> entries = new ArrayList<>();
         int rank = 1;
-        for (CategoryCount category : all.subList(0, Math.min(TOP_COUNTRIES, all.size()))) {
+        for (CategoryCount category : all.subList(0, Math.min(limit, all.size()))) {
             BigDecimal share = grandTotal.compareTo(BigDecimal.ZERO) == 0
                     ? BigDecimal.ZERO
                     : category.value().divide(grandTotal, 4, RoundingMode.HALF_UP);
-            entries.add(new RankingEntry(rank++, category.label(), category.value(), share));
+            entries.add(new RankingEntry(rank++, category.label(), category.value(), share, category.entityId()));
         }
         return new RankingResponse("countryRanking", "Top countries by incident count", entries);
     }
@@ -85,7 +97,7 @@ public class RankingAndBreakdownService {
         String yearWhere = YearRangeSqlHelper.whereClause(filter, params, "mv.event_year");
         String unknownClause = excludeUnknown ? " AND d.is_unknown = FALSE" : "";
 
-        String sql = "SELECT d.name AS label, SUM(mv.incident_count) AS total "
+        String sql = "SELECT d.id AS entity_id, d.name AS label, SUM(mv.incident_count) AS total "
                 + "FROM " + viewName + " mv "
                 + "JOIN " + dimensionTable + " d ON d.id = mv." + dimensionIdColumn + " "
                 + "WHERE " + yearWhere + unknownClause + " "
@@ -93,9 +105,9 @@ public class RankingAndBreakdownService {
                 + "ORDER BY total DESC";
 
         return jdbcTemplate.query(sql, params.toArray(), (rs, rowNum) ->
-                new CategoryCount(rs.getString("label"), rs.getBigDecimal("total")));
+                new CategoryCount(rs.getLong("entity_id"), rs.getString("label"), rs.getBigDecimal("total")));
     }
 
-    private record CategoryCount(String label, BigDecimal value) {
+    private record CategoryCount(long entityId, String label, BigDecimal value) {
     }
 }

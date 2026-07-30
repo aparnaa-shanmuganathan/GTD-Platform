@@ -67,6 +67,14 @@ public enum ErrorCode {
     ERR_REPORT_001("ERR-REPORT-001", Category.REPORT,
             "Report generation is not yet implemented", HttpStatus.NOT_IMPLEMENTED),
 
+    // --- COMPARE: SVC-COMPARE country comparison / drill-down (Phase 5) ---
+    ERR_COMPARE_001("ERR-COMPARE-001", Category.COMPARE,
+            "Country comparison requires between 2 and 4 countryIds", HttpStatus.BAD_REQUEST),
+    ERR_COMPARE_002("ERR-COMPARE-002", Category.COMPARE,
+            "Country drill-down requires exactly 1 countryId", HttpStatus.BAD_REQUEST),
+    ERR_COMPARE_003("ERR-COMPARE-003", Category.COMPARE,
+            "Requested country id does not exist", HttpStatus.NOT_FOUND),
+
     // --- SYSTEM: catch-all ---
     ERR_SYSTEM_001("ERR-SYSTEM-001", Category.SYSTEM,
             "Unexpected internal error", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -107,6 +115,7 @@ public enum ErrorCode {
         AUTH,
         REQUEST,
         REPORT,
+        COMPARE,
         SYSTEM
     }
 }
