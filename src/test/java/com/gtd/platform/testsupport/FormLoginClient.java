@@ -96,6 +96,18 @@ public final class FormLoginClient {
                 HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Same as {@link #postJson}, but deliberately omits the CSRF header - for asserting that Spring Security's CSRF protection actually rejects a request without it. */
+    public HttpResponse<String> postJsonWithoutCsrfToken(String path, String cookie, String jsonBody)
+            throws IOException, InterruptedException {
+        return httpClient.send(
+                HttpRequest.newBuilder(URI.create(baseUrl + path))
+                        .header("Content-Type", "application/json")
+                        .header("Cookie", cookie)
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
     /** Same request shape as {@link #postJson}, but for endpoints that return raw bytes (e.g. a PDF/CSV file download) rather than JSON text. */
     public HttpResponse<byte[]> postJsonForBytes(String path, String cookie, String csrfToken, String jsonBody)
             throws IOException, InterruptedException {

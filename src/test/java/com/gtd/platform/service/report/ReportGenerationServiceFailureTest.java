@@ -95,6 +95,14 @@ class ReportGenerationServiceFailureTest {
         assertThat(persisted.getStatus()).isEqualTo(Status.FAILED);
         assertThat(persisted.getFilePath()).isNull();
         assertThat(persisted.getReportName()).isEqualTo("Failing Report");
+
+        // A FAILED report has no file to serve - downloading it must be rejected, not attempt
+        // to read a null/missing file_path (Phase 7 hardening pass: previously untested).
+        when(generatedReportRepository.findById(persisted.getId())).thenReturn(java.util.Optional.of(persisted));
+        assertThatThrownBy(() -> reportGenerationService.download(persisted.getId()))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).errorCode())
+                .isEqualTo(ErrorCode.ERR_REPORT_005);
         assertThat(persisted.getFormat()).isEqualTo(Format.PDF);
     }
 

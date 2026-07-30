@@ -131,8 +131,15 @@ class RealFileImportPerformanceTest extends PostgresIntegrationTestBase {
         assertThat(totalRows).isGreaterThan(150_000);
         assertThat(rowsAccepted).isGreaterThan((int) (totalRows * 0.8));
 
+        // dataset_version.row_count is, by design (CLAUDE.md section 12, Phase 1 decisions), the
+        // CURRENT TOTAL across the whole fact_incident table at activation time - not "rows this
+        // import touched" - so it must be compared against the table's real total, not rowsAccepted
+        // (this file's own accepted-row count). This table is shared with every other test class in
+        // the same run (no rollback between them - PostgresIntegrationTestBase), so it will already
+        // hold rows from other tests' own imports too.
         DatasetVersion active = datasetVersionRepository.findByActiveTrue().orElseThrow();
-        assertThat(active.getRowCount()).isEqualTo(rowsAccepted);
+        Long actualFactIncidentTotal = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM fact_incident", Long.class);
+        assertThat(active.getRowCount()).isEqualTo(actualFactIncidentTotal.intValue());
         assertThat(datasetVersionRepository.findAll().stream().filter(DatasetVersion::isActive)).hasSize(1);
 
         assertThat(materializedViewStatusRepository.findAll())

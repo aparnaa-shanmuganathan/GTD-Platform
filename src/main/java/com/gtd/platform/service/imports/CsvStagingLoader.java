@@ -2,7 +2,7 @@ package com.gtd.platform.service.imports;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,6 +33,17 @@ import org.springframework.stereotype.Component;
  * dropped (logged once); columns only in {@code staging_incident} are left
  * {@code NULL} for every row. A perfect match stages everything: a mismatch
  * degrades gracefully instead of failing the whole import.
+ *
+ * <p><b>Charset: Windows-1252, not UTF-8</b> (Phase 7 hardening pass finding,
+ * against the real file for the first time - CLAUDE.md section 12, Phase 3's
+ * "reconcile against the real CSV" item). The real distributed GTD CSV
+ * ({@code globalterrorismdb_0718dist.csv}) is not valid UTF-8 - reading it
+ * as UTF-8 throws {@code MalformedInputException} partway through the
+ * {@code summary}/{@code scite*}/{@code motive} free-text columns, which
+ * contain non-ASCII characters (accented names, smart quotes/em-dashes from
+ * the Windows/Excel tooling the file was originally produced with). Verified
+ * against the real file: it decodes cleanly as Windows-1252 with no
+ * malformed sequences.
  */
 @Component
 public class CsvStagingLoader {
@@ -40,6 +51,7 @@ public class CsvStagingLoader {
     private static final Logger log = LoggerFactory.getLogger(CsvStagingLoader.class);
 
     private static final int BATCH_SIZE = 2000;
+    private static final Charset GTD_CSV_CHARSET = Charset.forName("windows-1252");
 
     static final List<String> STAGING_COLUMNS = List.of(
             "eventid", "iyear", "imonth", "iday", "approxdate", "extended", "resolution", "country", "country_txt",
@@ -83,7 +95,7 @@ public class CsvStagingLoader {
                 .setIgnoreSurroundingSpaces(true)
                 .build();
 
-        try (Reader reader = Files.newBufferedReader(csvPath, StandardCharsets.UTF_8);
+        try (Reader reader = Files.newBufferedReader(csvPath, GTD_CSV_CHARSET);
                 CSVParser parser = format.parse(reader)) {
 
             List<String> csvHeaders = parser.getHeaderNames();
