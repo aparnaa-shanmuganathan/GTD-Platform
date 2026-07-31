@@ -30,9 +30,9 @@
     <li><a th:href="@{/workspace/organization}" class="nav-item" th:aria-current="${active == 'organization'} ? 'page' : null">
       <span class="nav-label">Organization</span><span class="nav-tag">ORG</span>
     </a></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">Attack</span><span class="nav-tag">ATTACK</span><span class="soon-badge">Soon</span>
-    </span></li>
+    <li><a th:href="@{/workspace/attack}" class="nav-item" th:aria-current="${active == 'attack'} ? 'page' : null">
+      <span class="nav-label">Attack</span><span class="nav-tag">ATTACK</span>
+    </a></li>
     <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
       <span class="nav-label">Weapon</span><span class="nav-tag">WEAPON</span><span class="soon-badge">Soon</span>
     </span></li>
