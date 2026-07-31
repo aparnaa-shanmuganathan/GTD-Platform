@@ -1,0 +1,5 @@
+# Phase 11 (packaging): EnvironmentPostProcessor is discovered via classic spring.factories,
+# not the newer *.imports mechanism (which only applies to a specific later set of SPIs, not
+# this one) - verified against spring-boot-3.3.4.jar's own EnvironmentPostProcessorsFactory.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.gtd.platform.shared.bootstrap.EmbeddedPostgresEnvironmentPostProcessor

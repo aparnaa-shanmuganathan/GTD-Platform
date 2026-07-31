@@ -1,0 +1,13 @@
+# Packaged (jpackage installer) profile - Phase 11.
+#
+# spring.datasource.* is deliberately NOT set here. It is injected at startup by
+# EmbeddedPostgresEnvironmentPostProcessor (shared.bootstrap), which starts a real, bundled
+# PostgreSQL 16 server (only when the gtd.packaged=true system property is also present - see
+# that class's Javadoc) and wires the resulting JDBC URL/credentials in ahead of Spring's own
+# DataSource autoconfiguration. An admin who wants to point this installer at their own external
+# Postgres 16 instance instead can still do so by setting SPRING_DATASOURCE_URL (plus username/
+# password) as an environment variable before launching - the post-processor detects that and
+# skips starting the bundled server entirely.
+logging:
+  level:
+    com.gtd.platform: INFO

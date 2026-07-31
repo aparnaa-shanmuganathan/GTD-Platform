@@ -78,4 +78,6 @@ gtd:
     boundary-geojson-path: /geo/world-countries.geojson
     boundary-name-property: NAME,ADMIN,NAME_LONG,NAME_EN,SOVEREIGNT,FORMAL_EN,BRK_NAME
 
-# No active profile by default - one of "local" or "test" must be selected explicitly.
+# No active profile by default - one of "local", "test", or "packaged" (Phase 11's jpackage
+# installer, see application-packaged.yml and shared.bootstrap.EmbeddedPostgresEnvironmentPostProcessor)
+# must be selected explicitly.

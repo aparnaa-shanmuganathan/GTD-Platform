@@ -36,3 +36,8 @@ Thumbs.db
 # Real GTD dataset (large, licensed - never committed).
 # See RealFileImportPerformanceTest / README for how to provide it locally.
 /data/
+
+# Phase 11 packaging build output (jlink runtime images, staged jars, built installers) -
+# large, machine/OS-specific, entirely reproducible from packaging/*/build.sh|.ps1. The
+# scripts themselves and packaging/common/ ARE committed; only their output is not.
+/packaging/build/

@@ -28,6 +28,14 @@
             is NOT covered by that BOM, so it is pinned explicitly below.
         -->
         <embedded-postgres.version>2.0.7</embedded-postgres.version>
+        <!-- Phase 11 (packaging): embedded-postgres 2.0.7's own pom hardcodes Postgres 14.10.1
+             binaries by default, which drifted from CLAUDE.md section 2's frozen "PostgreSQL 16+"
+             target unnoticed since nothing had ever exercised the discrepancy. Pinned explicitly
+             here (overriding the transitive default via direct, nearer dependency declarations
+             below) so both the test fallback path and the new production embedded-Postgres
+             bootstrap (shared.bootstrap) run the same major version as the frozen stack and as
+             the Testcontainers postgres:16-alpine path. -->
+        <embedded-postgres-binaries.version>16.14.0</embedded-postgres-binaries.version>
         <!-- CSV parsing (Phase 3, IMPORT service) - not covered by Spring Boot's BOM.
              Added with the user's explicit sign-off; a hand-rolled parser risks silent
              column misalignment on the real data's quoted/escaped summary/citation fields. -->
@@ -140,11 +148,51 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Phase 0/Phase 7 (test fallback) AND Phase 11 (production embedded-Postgres
+             bootstrap, shared.bootstrap.EmbeddedPostgresEnvironmentPostProcessor): this is
+             no longer test-only, so it carries no <scope> (defaults to compile, available at
+             main compile/runtime as well as test). It is still a thin process-management
+             wrapper around real Postgres binaries, not a heavyweight library - see
+             CLAUDE.md's Phase 11 packaging notes. The four platform-binaries artifacts
+             embedded-postgres's own pom pulls in transitively at 14.10.1 are excluded so the
+             16.14.0 versions declared explicitly below (nearer, so they'd win either way, but
+             excluded too to avoid shipping unused duplicate 14.10.1 jars) are what actually
+             resolve. -->
         <dependency>
             <groupId>io.zonky.test</groupId>
             <artifactId>embedded-postgres</artifactId>
             <version>${embedded-postgres.version}</version>
-            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-darwin-amd64</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-linux-amd64-alpine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- This dev/CI machine's own platform (Apple Silicon macOS) - needed unconditionally
+             so `mvn test`'s embedded-postgres fallback path (PostgresIntegrationTestBase) and
+             a macOS-arm64 packaged build both resolve a real Postgres 16 binary without
+             requiring a packaging profile to be active. The other four platform/arch binaries
+             below are added only by their respective packaging profile, each producing exactly
+             one OS's installer, so a normal dev build/test run doesn't carry all five ~30-50MB
+             binary archives on its classpath. -->
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+            <version>${embedded-postgres-binaries.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <!-- Test-only: extracts text from REPORT service-generated PDFs so tests can assert
              on actual content (CLAUDE.md section 14's "not just a number comes back" standard),
@@ -166,5 +214,72 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- Phase 11 (packaging/installer): one profile per target OS/arch this platform ships an
+         installer for (CLAUDE.md section 3). Each activates ONLY the one matching
+         embedded-postgres-binaries artifact needed to bundle a real Postgres 16 server into
+         that OS's app image (packaging/*/build.sh|.ps1 activates the matching profile before
+         calling jpackage) - never all five at once, which would otherwise bloat every
+         installer with four other platforms' unused binary archives. The darwin-arm64v8
+         profile is a no-op alias of the unconditional dependency above (kept for symmetry/
+         documentation - the packaging README still tells a macOS-arm64 build to activate it
+         explicitly rather than relying on the reader knowing it's already unconditional). -->
+    <profiles>
+        <profile>
+            <id>package-macos-arm64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+                    <version>${embedded-postgres-binaries.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>package-macos-amd64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-darwin-amd64</artifactId>
+                    <version>${embedded-postgres-binaries.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>package-windows-amd64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+                    <version>${embedded-postgres-binaries.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>package-linux-amd64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+                    <version>${embedded-postgres-binaries.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>package-linux-arm64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-linux-arm64v8</artifactId>
+                    <version>${embedded-postgres-binaries.version}</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 
 </project>
