@@ -1,5 +1,6 @@
 package com.gtd.platform.service.imports;
 
+import com.gtd.platform.service.config.PlatformConfigService;
 import com.gtd.platform.shared.api.ApiResponse;
 import com.gtd.platform.shared.auth.AdminUser;
 import com.gtd.platform.shared.auth.AdminUserRepository;
@@ -44,21 +45,28 @@ public class ImportController {
     private final ImportConfirmationService importConfirmationService;
     private final ImportBatchRepository importBatchRepository;
     private final AdminUserRepository adminUserRepository;
+    private final PlatformConfigService platformConfigService;
 
     public ImportController(ImportOrchestrationService importOrchestrationService,
             ImportConfirmationService importConfirmationService, ImportBatchRepository importBatchRepository,
-            AdminUserRepository adminUserRepository) {
+            AdminUserRepository adminUserRepository, PlatformConfigService platformConfigService) {
         this.importOrchestrationService = importOrchestrationService;
         this.importConfirmationService = importConfirmationService;
         this.importBatchRepository = importBatchRepository;
         this.adminUserRepository = adminUserRepository;
+        this.platformConfigService = platformConfigService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ImportUploadResponse>> upload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("mode") ImportMode mode,
+            @RequestParam(value = "mode", required = false) ImportMode mode,
             Authentication authentication) throws IOException {
+
+        // CONFIG's default-import-mode (Phase 10) - a real server-side fallback, not just a UI
+        // pre-fill, so any caller (including a script bypassing the Administration Workspace's
+        // own upload form) gets the admin-configured default when it omits mode entirely.
+        ImportMode effectiveMode = mode != null ? mode : platformConfigService.getCurrent().defaultImportMode();
 
         if (file.isEmpty()) {
             throw new ApiException(ErrorCode.ERR_IMPORT_001, "Uploaded file is empty");
@@ -80,7 +88,7 @@ public class ImportController {
                 .orElse(null);
 
         ImportBatch batch = importOrchestrationService.initiateImport(
-                originalFilename, file.getSize(), mode, adminUserId, stagedPath);
+                originalFilename, file.getSize(), effectiveMode, adminUserId, stagedPath);
 
         ImportUploadResponse body = new ImportUploadResponse(batch.getId(), batch.getStatus().name());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(body));

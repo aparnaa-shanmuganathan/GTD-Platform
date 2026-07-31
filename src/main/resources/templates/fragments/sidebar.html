@@ -9,11 +9,9 @@
   place to update as later phases build out the remaining 12 workspaces -
   never copy-pasted per page like the topbar markup.
 
-  Only Executive, Country, and Report are real links (Phases 4-6, the only
-  workspaces that exist). Every other entry is a disabled placeholder
-  marking a workspace CLAUDE.md's frozen architecture commits to but that
-  hasn't been built yet - deliberately never a link to a route that would
-  404.
+  As of Phase 10, all 15 workspaces are real links - Administration, Data
+  Quality Center, Audit & Activity Log, and System Health Dashboard were
+  the last four "Soon" placeholders.
 -->
 <nav th:fragment="nav(active)" class="sidebar" aria-label="Workspaces">
   <div class="nav-group-label">Analytical Workspaces</div>
@@ -51,18 +49,18 @@
     <li><a th:href="@{/workspace/report}" class="nav-item" th:aria-current="${active == 'report'} ? 'page' : null">
       <span class="nav-label">Report</span><span class="nav-tag">REPORT-WS</span>
     </a></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">Administration</span><span class="nav-tag">ADMIN</span><span class="soon-badge">Soon</span>
-    </span></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">Data Quality Center</span><span class="nav-tag">DQ</span><span class="soon-badge">Soon</span>
-    </span></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">Audit &amp; Activity Log</span><span class="nav-tag">AUDIT</span><span class="soon-badge">Soon</span>
-    </span></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">System Health Dashboard</span><span class="nav-tag">HEALTH</span><span class="soon-badge">Soon</span>
-    </span></li>
+    <li><a th:href="@{/workspace/administration}" class="nav-item" th:aria-current="${active == 'administration'} ? 'page' : null">
+      <span class="nav-label">Administration</span><span class="nav-tag">ADMIN</span>
+    </a></li>
+    <li><a th:href="@{/workspace/dataquality}" class="nav-item" th:aria-current="${active == 'dataquality'} ? 'page' : null">
+      <span class="nav-label">Data Quality Center</span><span class="nav-tag">DQ</span>
+    </a></li>
+    <li><a th:href="@{/workspace/audit}" class="nav-item" th:aria-current="${active == 'audit'} ? 'page' : null">
+      <span class="nav-label">Audit &amp; Activity Log</span><span class="nav-tag">AUDIT</span>
+    </a></li>
+    <li><a th:href="@{/workspace/health}" class="nav-item" th:aria-current="${active == 'health'} ? 'page' : null">
+      <span class="nav-label">System Health Dashboard</span><span class="nav-tag">HEALTH</span>
+    </a></li>
   </ul>
 </nav>
 </body>

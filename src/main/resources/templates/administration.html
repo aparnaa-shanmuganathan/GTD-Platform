@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Administration — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('administration')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-ADMIN-001</div>
+        <div class="view-title">Administration</div>
+      </div>
+    </div>
+
+    <div class="alert" id="anonymousNotice" th:if="${username == null}" role="status"
+         style="border-color:var(--brass-dim);background:var(--brass-soft);color:var(--brass);margin-bottom:16px;">
+      <div>
+        <div class="alert-title">Viewing only</div>
+        <div class="alert-body">Settings and import batch history below are real, current data. <a th:href="@{/login}">Sign in</a> to change configuration or import a dataset.</div>
+      </div>
+    </div>
+
+    <div class="panels-row">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Platform configuration</div>
+          <div class="panel-tag">CONFIG</div>
+        </div>
+        <form id="configForm">
+          <div class="field">
+            <label for="sessionTimeoutMinutes">Session timeout (minutes)</label>
+            <input class="input" type="number" id="sessionTimeoutMinutes" min="5" max="1440"
+                   th:value="${config.sessionTimeoutMinutes}" th:disabled="${username == null}">
+          </div>
+          <div class="field">
+            <label for="defaultImportMode">Default import mode (duplicate handling)</label>
+            <select class="input" id="defaultImportMode" th:disabled="${username == null}">
+              <option value="APPEND" th:selected="${config.defaultImportMode.name() == 'APPEND'}">APPEND — skip duplicate eventids</option>
+              <option value="REPLACE" th:selected="${config.defaultImportMode.name() == 'REPLACE'}">REPLACE — overwrite duplicate eventids</option>
+            </select>
+          </div>
+          <label class="filter-chip" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="materializedViewAutoRefresh" style="width:auto;"
+                   th:checked="${config.materializedViewAutoRefresh}" th:disabled="${username == null}">
+            <span>Auto-refresh materialized views after import</span>
+          </label>
+          <p class="field-hint" style="margin:4px 0 0;">When off, dashboards relying on ranking/breakdown views go stale after an import until re-enabled or manually refreshed below.</p>
+          <label class="filter-chip" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;margin-top:10px;">
+            <input type="checkbox" id="notifyOnImportCompletion" style="width:auto;"
+                   th:checked="${config.notifyOnImportCompletion}" th:disabled="${username == null}">
+            <span>Show an in-app notification when an import finishes</span>
+          </label>
+          <button type="submit" class="btn btn-primary" style="margin-top:14px;" th:if="${username != null}">Save settings</button>
+        </form>
+        <p class="field-hint" id="configSavedHint" style="margin-top:10px;display:none;"></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Import a dataset</div>
+          <div class="panel-tag">IMPORT</div>
+        </div>
+        <form id="uploadForm" th:if="${username != null}">
+          <div class="field">
+            <label for="csvFile">GTD-format CSV file</label>
+            <input class="input" type="file" id="csvFile" accept=".csv" required>
+          </div>
+          <div class="field">
+            <label for="uploadMode">Mode</label>
+            <select class="input" id="uploadMode">
+              <option value="APPEND">APPEND</option>
+              <option value="REPLACE">REPLACE</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" id="uploadBtn">Upload &amp; stage</button>
+        </form>
+        <p class="field-hint" th:unless="${username != null}"><a th:href="@{/login}">Sign in</a> to import a new dataset.</p>
+        <div id="importProgress" style="margin-top:14px;display:none;">
+          <p class="field-hint" id="importStatusLine"></p>
+          <button type="button" class="btn btn-primary" id="confirmBtn" style="display:none;">Confirm &amp; activate</button>
+        </div>
+        <button type="button" class="btn btn-sm" id="refreshViewsBtn" th:if="${username != null}" style="margin-top:14px;">Refresh materialized views now</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Recent import batches</div>
+        <div class="panel-tag">IMPORT</div>
+      </div>
+      <div id="batchHistory"></div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+<div th:replace="~{fragments/searchmodal :: modal}"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_BATCHES = /*[[${recentBatches}]]*/ [];
+  window.NOTIFY_ON_IMPORT_COMPLETION = /*[[${config.notifyOnImportCompletion}]]*/ true;
+  window.IS_AUTHENTICATED = /*[[${username != null}]]*/ false;
+  /*]]>*/
+</script>
+<script th:src="@{/js/search.js}"></script>
+<script th:src="@{/js/administration.js}"></script>
+</body>
+</html>

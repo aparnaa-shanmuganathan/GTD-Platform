@@ -137,6 +137,86 @@ class SecurityHardeningTest extends PostgresIntegrationTestBase {
     }
 
     @Test
+    void phase10NewWorkspacePagesAreAllPubliclyAccessible() throws Exception {
+        // Administration, Data Quality Center, Audit & Activity Log, and System Health
+        // Dashboard (Phase 10) - the access model amendment applies to these with unusual
+        // precision (CLAUDE.md section 12): the pages themselves are viewing, not
+        // state-changing, so all four are permitAll() exactly like every earlier workspace.
+        List<String> newPublicPages = List.of(
+                "/workspace/administration", "/workspace/dataquality", "/workspace/audit", "/workspace/health");
+
+        for (String path : newPublicPages) {
+            HttpResponse<String> response = client.getWithCookie(path, "");
+            assertThat(response.statusCode())
+                    .withFailMessage("Expected %s to be publicly accessible, but got %s", path, response.statusCode())
+                    .isEqualTo(200);
+        }
+    }
+
+    @Test
+    void phase10ReadOnlyPostEndpointsAreAllPubliclyAccessible() throws Exception {
+        // Every read-only query endpoint the four new Phase 10 workspaces expose, plus SEARCH -
+        // none of these change platform state, so none requires authentication.
+        HttpResponse<String> loginPage = client.getWithCookie("/login", "");
+        String anonymousCookie = sessionCookieFrom(loginPage);
+        String anonymousCsrfToken = FormLoginClient.extractCsrfToken(loginPage.body());
+
+        List<String> publicPostEndpoints = List.of(
+                "/api/config", "/api/dataquality/batches", "/api/audit/entries", "/api/health/check", "/api/search");
+
+        for (String path : publicPostEndpoints) {
+            HttpResponse<String> response = client.postJson(path, anonymousCookie, anonymousCsrfToken, "{}");
+            assertThat(response.statusCode())
+                    .withFailMessage("Expected %s to be publicly accessible, but got %s", path, response.statusCode())
+                    .isEqualTo(200);
+        }
+    }
+
+    @Test
+    void phase10StateChangingEndpointsRejectUnauthenticatedRequestsButSucceedWhenAuthenticated() throws Exception {
+        // The only two genuinely new authenticated() rules Phase 10 added, alongside the
+        // pre-existing /api/import/** - CLAUDE.md section 12's access model amendment applied
+        // precisely: saving a CONFIG value and manually triggering a materialized-view refresh
+        // are the only state-changing actions these phases introduced.
+        String configSaveBody = "{\"sessionTimeoutMinutes\":30,\"defaultImportMode\":\"APPEND\","
+                + "\"materializedViewAutoRefresh\":true,\"notifyOnImportCompletion\":true}";
+
+        HttpResponse<String> anonymousConfigSave = client.postJsonWithoutCsrfToken("/api/config/save", "", configSaveBody);
+        assertThat(anonymousConfigSave.statusCode())
+                .withFailMessage("Expected /api/config/save to reject an unauthenticated request, but got %s",
+                        anonymousConfigSave.statusCode())
+                .isIn(302, 401, 403);
+
+        HttpResponse<String> anonymousRefreshViews = client.postJsonWithoutCsrfToken("/api/administration/refresh-views", "", "{}");
+        assertThat(anonymousRefreshViews.statusCode())
+                .withFailMessage("Expected /api/administration/refresh-views to reject an unauthenticated request, but got %s",
+                        anonymousRefreshViews.statusCode())
+                .isIn(302, 401, 403);
+
+        // Authenticated, real effect - a real value change a subsequent public read reflects.
+        String username = "sec-it-user-" + UUID.randomUUID();
+        String password = "correct-horse-battery-staple";
+        AdminUser user = new AdminUser();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setActive(true);
+        user.setCreatedAt(Instant.now());
+        adminUserRepository.save(user);
+
+        LoginResult loginResult = client.login(username, password);
+        assertThat(loginResult.isRedirect()).isTrue();
+        String authenticatedCookie = loginResult.sessionCookie();
+        String authenticatedCsrfToken = client.csrfTokenFor(authenticatedCookie);
+
+        HttpResponse<String> authenticatedSave = client.postJson("/api/config/save", authenticatedCookie, authenticatedCsrfToken, configSaveBody);
+        assertThat(authenticatedSave.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> authenticatedRefresh = client.postJson(
+                "/api/administration/refresh-views", authenticatedCookie, authenticatedCsrfToken, "{}");
+        assertThat(authenticatedRefresh.statusCode()).isEqualTo(200);
+    }
+
+    @Test
     void sessionCookieIsHttpOnlyAndNotMarkedSecureOverPlainHttp() throws Exception {
         String username = "cookie-it-user-" + UUID.randomUUID();
         String password = "correct-horse-battery-staple";

@@ -34,6 +34,7 @@
       </div>
     </div>
     <div class="topbar-right">
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
       <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
       <div class="session-chip" th:if="${username != null}">
         <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
@@ -140,6 +141,7 @@
 </div>
 
 <div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+<div th:replace="~{fragments/searchmodal :: modal}"></div>
 
 <script th:inline="javascript">
   /*<![CDATA[*/
@@ -150,6 +152,7 @@
   window.BOUNDARY_NAME_PROPERTIES = /*[[${boundaryNameProperties}]]*/ [];
   /*]]>*/
 </script>
+<script th:src="@{/js/search.js}"></script>
 <script th:src="@{/js/geospatial.js}"></script>
 </body>
 </html>

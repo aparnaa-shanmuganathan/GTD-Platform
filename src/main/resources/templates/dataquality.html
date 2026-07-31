@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Data Quality Center — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('dataquality')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-DQ-001</div>
+        <div class="view-title">Data Quality Center</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Import batches</div>
+        <div class="panel-tag">DQ</div>
+      </div>
+      <p class="field-hint" style="margin:-6px 0 12px;">Select a batch to review its rejection and duplicate breakdown.</p>
+      <div id="batchList"></div>
+    </div>
+
+    <div class="panel" id="batchDetailPanel" style="display:none;">
+      <div class="panel-head">
+        <div class="panel-title" id="batchDetailTitle">Batch detail</div>
+        <div class="panel-tag">DQ</div>
+      </div>
+      <div id="rejectionBreakdown"></div>
+      <div style="margin-top:16px;">
+        <div class="panel-title" style="font-size:13px;margin-bottom:8px;">Rejected rows (most recent first, up to 200 shown)</div>
+        <div id="rejectedRowsTable"></div>
+      </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+<div th:replace="~{fragments/searchmodal :: modal}"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_BATCHES = /*[[${batches}]]*/ [];
+  /*]]>*/
+</script>
+<script th:src="@{/js/search.js}"></script>
+<script th:src="@{/js/dataquality.js}"></script>
+</body>
+</html>

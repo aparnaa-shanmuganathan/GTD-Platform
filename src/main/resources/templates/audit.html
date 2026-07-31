@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Audit &amp; Activity Log — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('audit')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-AUDIT-001</div>
+        <div class="view-title">Audit &amp; Activity Log</div>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-chip">
+        <label for="filterActor">Actor</label>
+        <input class="input" type="text" id="filterActor" placeholder="username contains…">
+      </div>
+      <div class="filter-chip">
+        <label for="filterActionType">Action type</label>
+        <input class="input" type="text" id="filterActionType" placeholder="e.g. CONFIG_UPDATED">
+      </div>
+      <div class="filter-chip">
+        <label for="filterStartDate">From</label>
+        <input class="input" type="date" id="filterStartDate">
+      </div>
+      <div class="filter-chip">
+        <label for="filterEndDate">To</label>
+        <input class="input" type="date" id="filterEndDate">
+      </div>
+      <button type="button" class="btn btn-sm" id="clearFiltersBtn">Clear</button>
+    </div>
+
+    <p class="field-hint" style="margin:0 0 10px;">Read-only, append-only log - no edit or delete action exists anywhere in this view.</p>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Activity entries</div>
+        <div class="panel-tag">AUDIT</div>
+      </div>
+      <div id="auditEntries"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+        <button type="button" class="btn btn-sm" id="prevPageBtn">Previous</button>
+        <span class="field-hint" id="pageInfo"></span>
+        <button type="button" class="btn btn-sm" id="nextPageBtn">Next</button>
+      </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+<div th:replace="~{fragments/searchmodal :: modal}"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_ENTRIES = /*[[${entries}]]*/ {};
+  /*]]>*/
+</script>
+<script th:src="@{/js/search.js}"></script>
+<script th:src="@{/js/audit.js}"></script>
+</body>
+</html>

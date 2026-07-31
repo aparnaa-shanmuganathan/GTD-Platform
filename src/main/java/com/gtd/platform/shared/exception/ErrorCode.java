@@ -98,6 +98,10 @@ public enum ErrorCode {
     ERR_ORGANIZATION_002("ERR-ORGANIZATION-002", Category.ORGANIZATION,
             "Requested organization id does not exist", HttpStatus.NOT_FOUND),
 
+    // --- CONFIG: consolidated platform configuration (Phase 10) ---
+    ERR_CONFIG_001("ERR-CONFIG-001", Category.CONFIG,
+            "Invalid configuration value", HttpStatus.BAD_REQUEST),
+
     // --- SYSTEM: catch-all ---
     ERR_SYSTEM_001("ERR-SYSTEM-001", Category.SYSTEM,
             "Unexpected internal error", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -141,6 +145,7 @@ public enum ErrorCode {
         COMPARE,
         REGION,
         ORGANIZATION,
+        CONFIG,
         SYSTEM
     }
 }

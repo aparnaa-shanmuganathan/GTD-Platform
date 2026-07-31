@@ -276,13 +276,15 @@ This is the execution plan for turning the approved HTML demo (`reference/gtd-pl
 
 **Prompt to paste:**
 
-> Read `CLAUDE.md` fully, especially the CONFIG-service gap noted in the original spec (individual Administration FRs configure CONFIG values piecemeal; there's never been one consolidated CONFIG service).
+> Read `CLAUDE.md` fully, especially the CONFIG-service gap noted in the original spec (individual Administration FRs configure CONFIG values piecemeal; there's never been one consolidated CONFIG service) and the "Access model amendment" under section 12.
 >
 > Build: Administration Workspace (login management already exists from Phase 2 — add import initiation/monitoring UI wired to Phase 3's IMPORT service, and a consolidated CONFIG service covering every setting referenced piecemeal across earlier phases — session timeout, duplicate-handling default, materialized-view auto-refresh toggle, notification preferences, etc. — as one real service, not scattered flags); Data Quality Center (import batch review UI surfacing the rejection detail Phase 3 already logs, with rejection/duplicate breakdowns); Audit & Activity Log (a queryable, filterable UI over the `audit_log` table from Phase 2, append-only, no edit/delete affordance anywhere in the UI); System Health Dashboard (DB connection status, active dataset version, materialized-view freshness from `materialized_view_status`, offline-verification indicator — actually verify zero outbound requests rather than hardcoding "passed"); SEARCH service (global search across workspaces, organizations, countries, and quick actions — the backend for the command-palette-style search pattern shown in `reference/gtd-platform-demo.html`).
 >
-> Write unit/integration tests per component to the established standard.
+> **Access model for this phase specifically:** per the amendment, only actions that change platform state need authentication - not viewing. That means: viewing Data Quality Center, Audit & Activity Log, and System Health Dashboard should be `permitAll()` like every other workspace built so far (they're read-only displays); only the Administration Workspace's actual state-changing actions (triggering an import, saving a CONFIG value) need to sit behind the same authenticated-session requirement as `/api/import/**`. Don't gate the whole Administration Workspace page behind login if simply viewing its current settings doesn't change anything - only the save/submit actions should require it. Be explicit in your summary about exactly which endpoints ended up authenticated versus public, since this phase has more of that judgment call than earlier ones.
+>
+> Write unit/integration tests per component to the established standard, including tests proving the public/admin-gated split above is correct.
 
-**Acceptance criteria:** All four remaining administrative workspaces functional against real data and the real audit log; CONFIG service consolidates settings rather than leaving them scattered; SEARCH works across all workspaces; `mvn clean verify` passes.
+**Acceptance criteria:** All four remaining administrative workspaces functional against real data and the real audit log; CONFIG service consolidates settings rather than leaving them scattered; SEARCH works across all workspaces; viewing DQ/Audit/Health requires no login, only actual import-triggering/CONFIG-saving actions do; `mvn clean verify` passes.
 
 ---
 

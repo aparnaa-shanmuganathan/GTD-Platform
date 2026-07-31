@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Global search / command palette (Phase 10, SEARCH) - two named fragments
+  rather than one, since they're placed in two different spots on every
+  page: trigger() goes inside each page's own (still copy-pasted, per
+  earlier phases' established convention) topbar block, and modal() goes
+  once near the end of <body>. Additive to the topbar rather than
+  extracting the whole thing into a shared fragment - topbar markup
+  elsewhere in this project has deliberately stayed per-page (cosmetic
+  duplication, low drift risk); this only adds one new genuinely shared
+  piece to it, the same reasoning fragments/footer.html and
+  fragments/sidebar.html were introduced for their own genuinely shared
+  content.
+
+  Not included on login.html (unauthenticated, minimal-chrome page with no
+  topbar to begin with) or index.html's post-login landing page's own
+  distinct layout is still included there per the plan, since it does have
+  a topbar-equivalent area.
+-->
+<button th:fragment="trigger" type="button" class="search-trigger" id="searchTrigger" aria-haspopup="dialog" aria-label="Open global search (Control K)">
+  <span>Search workspaces, countries, organizations…</span>
+  <span class="kbd-hint">&#8984;K</span>
+</button>
+
+<div th:fragment="modal" class="modal-backdrop" id="searchBackdrop">
+  <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="searchModalTitle" id="searchModal">
+    <h2 class="sr-only" id="searchModalTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;">Global search</h2>
+    <div class="search-input-wrap">
+      <input type="text" class="search-input" id="searchInput" placeholder="Jump to a workspace, country, or organization…" aria-label="Search" autocomplete="off">
+      <button type="button" class="icon-btn" id="searchCloseBtn" aria-label="Close search">&times;</button>
+    </div>
+    <div class="search-results" id="searchResults" role="listbox" aria-label="Search results"></div>
+  </div>
+</div>
+</body>
+</html>

@@ -72,7 +72,7 @@ class SchemaIntegrationTest extends PostgresIntegrationTestBase {
     void migrationsRunCleanlyAndSeedDataIsPresent() {
         Integer appliedMigrations = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = TRUE", Integer.class);
-        assertThat(appliedMigrations).isEqualTo(10); // V1-V9 (Phase 1) + V10 (Phase 3: import_rejected_row)
+        assertThat(appliedMigrations).isEqualTo(11); // V1-V9 (Phase 1) + V10 (Phase 3: import_rejected_row) + V11 (Phase 10: platform_config)
 
         // 12 canonical GTD regions + Unknown
         assertThat(dimRegionRepository.count()).isEqualTo(13);

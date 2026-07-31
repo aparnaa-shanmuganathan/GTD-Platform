@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>System Health — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('health')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-HEALTH-001</div>
+        <div class="view-title">System Health Dashboard</div>
+      </div>
+      <button type="button" class="btn btn-sm" id="recheckBtn">Re-check now</button>
+    </div>
+
+    <p class="field-hint" id="checkedAtHint" style="margin:0 0 14px;"></p>
+
+    <div class="panels-row" id="statusCards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Materialized view freshness</div>
+        <div class="panel-tag">HEALTH</div>
+      </div>
+      <div id="mvFreshness"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Offline verification</div>
+        <div class="panel-tag">HEALTH</div>
+      </div>
+      <p class="field-hint" style="margin:-6px 0 12px;">
+        A real scan of every bundled template and stylesheet for a hardcoded external
+        (<code>http(s)://</code>) reference in a fetch-triggering position (script/link tag, CSS
+        <code>url()</code>) - not a hardcoded "passed" and not a live network probe (see the
+        result for why).
+      </p>
+      <div id="offlineVerification"></div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+<div th:replace="~{fragments/searchmodal :: modal}"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_HEALTH = /*[[${health}]]*/ {};
+  /*]]>*/
+</script>
+<script th:src="@{/js/search.js}"></script>
+<script th:src="@{/js/health.js}"></script>
+</body>
+</html>

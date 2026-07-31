@@ -25,12 +25,18 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
  * restart (see {@code SessionPersistenceAcrossRestartTest}).
  *
  * <p><strong>Access model (CLAUDE.md section 12, "Access model amendment"):
- * </strong> authentication gates dataset import only, not viewing. Every
- * analytical workspace page and API is {@code permitAll()}; only
- * {@code /api/import/**} requires an authenticated admin session. CSRF
- * protection is untouched by this change and still applies to every
- * state-changing POST regardless of whether that endpoint also requires
- * authentication.
+ * </strong> authentication gates state-changing actions only, not viewing.
+ * Every analytical workspace page and read-only API is {@code permitAll()}.
+ * Phase 10 (Administration/CONFIG, Data Quality Center, Audit & Activity
+ * Log, System Health Dashboard, SEARCH) applied this with unusual
+ * precision: all four new workspace pages and every one of their read-only
+ * query endpoints are {@code permitAll()} exactly like every other
+ * workspace - only the two genuinely state-changing actions those phases
+ * introduced ({@code POST /api/config/save}, {@code POST
+ * /api/administration/refresh-views}) were added to the authenticated set
+ * alongside the pre-existing {@code /api/import/**}. CSRF protection is
+ * untouched by any of this and still applies to every state-changing POST
+ * regardless of whether that endpoint also requires authentication.
  */
 @Configuration
 @EnableWebSecurity
@@ -46,7 +52,8 @@ public class SecurityConfig {
             throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/import/**").authenticated()
+                        .requestMatchers("/api/import/**", "/api/config/save", "/api/administration/refresh-views")
+                        .authenticated()
                         .anyRequest().permitAll())
                 .formLogin(form -> form
                         .loginPage("/login")

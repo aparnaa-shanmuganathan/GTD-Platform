@@ -1,5 +1,6 @@
 package com.gtd.platform.service.imports;
 
+import com.gtd.platform.service.config.PlatformConfigService;
 import com.gtd.platform.shared.db.DatasetVersion;
 import org.springframework.stereotype.Service;
 
@@ -16,22 +17,35 @@ import org.springframework.stereotype.Service;
  * runs, since {@code REFRESH MATERIALIZED VIEW CONCURRENTLY} is rejected by
  * PostgreSQL inside a transaction block and must see the newly-activated
  * data.
+ *
+ * <p>The refresh step is now gated by CONFIG's {@code
+ * materializedViewAutoRefresh} setting (Phase 10) - when off, the views go
+ * stale until an admin either re-enables it or uses the Administration
+ * Workspace's manual "Refresh views now" action ({@code
+ * MaterializedViewRefreshService#refreshAll} called directly from {@code
+ * AdministrationController}). Dataset activation itself is never gated -
+ * only whether the read-optimized views are eagerly rebuilt afterward.
  */
 @Service
 public class ImportConfirmationService {
 
     private final DatasetVersionActivationService datasetVersionActivationService;
     private final MaterializedViewRefreshService materializedViewRefreshService;
+    private final PlatformConfigService platformConfigService;
 
     public ImportConfirmationService(DatasetVersionActivationService datasetVersionActivationService,
-            MaterializedViewRefreshService materializedViewRefreshService) {
+            MaterializedViewRefreshService materializedViewRefreshService,
+            PlatformConfigService platformConfigService) {
         this.datasetVersionActivationService = datasetVersionActivationService;
         this.materializedViewRefreshService = materializedViewRefreshService;
+        this.platformConfigService = platformConfigService;
     }
 
     public DatasetVersion confirm(long importBatchId) {
         DatasetVersion activated = datasetVersionActivationService.activate(importBatchId);
-        materializedViewRefreshService.refreshAll();
+        if (platformConfigService.getCurrent().materializedViewAutoRefresh()) {
+            materializedViewRefreshService.refreshAll();
+        }
         return activated;
     }
 }
