@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Organization Workspace — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<script th:src="@{/js/echarts.min.js}"></script>
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('organization')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-ORGANIZATION-001</div>
+        <div class="view-title">Organization Workspace</div>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-chip">
+        <label for="filterDate">Date range</label>
+        <select id="filterDate">
+          <option value="full" th:text="${minYear != null ? minYear + ' – ' + maxYear + ' (full)' : 'Full range'}">Full range</option>
+          <option value="last10">Last 10 years</option>
+          <option value="last5">Last 5 years</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterRegion">Region</label>
+        <select id="filterRegion">
+          <option value="">All regions</option>
+          <option th:each="region : ${regions}" th:value="${region.id}" th:text="${region.name}"></option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterAttack">Attack type</label>
+        <select id="filterAttack">
+          <option value="">All types</option>
+          <option th:each="attackType : ${attackTypes}" th:value="${attackType.id}" th:text="${attackType.name}"></option>
+        </select>
+      </div>
+    </div>
+
+    <div id="orgKpiZone"></div>
+
+    <div class="tabs">
+      <div class="tablist" role="tablist">
+        <button class="tab" role="tab" id="tabRanking" aria-selected="true" aria-controls="rankingPanel" tabindex="0">Rankings</button>
+        <button class="tab" role="tab" id="tabDrilldown" aria-selected="false" aria-controls="drilldownPanel" tabindex="-1" disabled>Organization trend</button>
+      </div>
+
+      <div class="tabpanel" id="rankingPanel" role="tabpanel" aria-labelledby="tabRanking">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Organizations ranked by incident count</div>
+            <div class="panel-tag">CAC-AN-002 &middot; SVC-AGG &middot; AWS-UNK-001</div>
+          </div>
+          <p class="field-hint" style="margin:-6px 0 12px;">Excludes the unattributed/unknown organization row - click an organization to drill into its own time trend and geographic reach.</p>
+          <div id="organizationRanking"></div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="drilldownPanel" role="tabpanel" aria-labelledby="tabDrilldown" hidden>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title" id="drilldownTitle">—</div>
+            <div class="panel-tag">SVC-AGG / SVC-TREND &middot; parameterized by organization</div>
+          </div>
+          <div id="drilldownKpiZone"></div>
+          <div class="chart-wrap" id="drilldownChartWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_RANKING = /*[[${ranking}]]*/ {};
+  window.INITIAL_KPIS = /*[[${kpis}]]*/ [];
+  window.MIN_YEAR = /*[[${minYear}]]*/ null;
+  window.MAX_YEAR = /*[[${maxYear}]]*/ null;
+  /*]]>*/
+</script>
+<script th:src="@{/js/organization.js}"></script>
+</body>
+</html>

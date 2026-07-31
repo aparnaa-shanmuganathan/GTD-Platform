@@ -53,6 +53,55 @@ public class KpiAggregationService {
         this.organizationRepository = organizationRepository;
     }
 
+    /**
+     * Organization Workspace's KPI row (Phase 8): {@link #computeExecutiveKpis} unmodified,
+     * plus one appended KPI - "Unattributed incidents" - the more visible half of the
+     * workspace's "dedicated unknown-organization handling" requirement (the other half is
+     * {@code RankingAndBreakdownService.topOrganizationsByIncidentCount} excluding the same
+     * seeded {@code is_unknown} row from the ranking itself). Lives here rather than a new
+     * package since this class already owns the {@code unknownOrgId} lookup and SAV-006's
+     * AWS-UNK-001 exclusion logic - this is a small, natural extension of that, not a new
+     * computation owner.
+     */
+    public List<KpiResponse> computeOrganizationKpis(AnalyticalFilterRequest filter) {
+        List<KpiResponse> kpis = new ArrayList<>(computeExecutiveKpis(filter));
+        kpis.add(computeUnattributedIncidentsKpi(filter));
+        return kpis;
+    }
+
+    private KpiResponse computeUnattributedIncidentsKpi(AnalyticalFilterRequest filter) {
+        long unknownOrgId = organizationRepository.findByUnknownTrue()
+                .orElseThrow(() -> new IllegalStateException("dim_organization has no seeded is_unknown row"))
+                .getId();
+
+        BuiltFilter built = FactIncidentFilterSqlBuilder.build(filter);
+        String sql = "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE organization_id = ?) AS unattributed "
+                + "FROM fact_incident WHERE " + built.whereClauseSql();
+        List<Object> params = new ArrayList<>();
+        params.add(unknownOrgId);
+        params.addAll(built.params());
+
+        UnattributedCounts counts = jdbcTemplate.queryForObject(sql, params.toArray(), (rs, rowNum) ->
+                new UnattributedCounts(rs.getLong("total"), rs.getLong("unattributed")));
+
+        BigDecimal sharePercent = counts.total() == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(counts.unattributed())
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(BigDecimal.valueOf(counts.total()), 1, RoundingMode.HALF_UP);
+        // Reuses KpiResponse.Trend to carry a share-of-total figure, not a period-over-period
+        // comparison - a deliberate, narrow repurposing of the existing sub-shape (documented
+        // here rather than adding a KpiResponse field only this one KPI would ever populate).
+        KpiResponse.Trend shareOfTotal = new KpiResponse.Trend(
+                KpiResponse.Direction.FLAT, sharePercent + "% of all incidents", sharePercent);
+
+        return new KpiResponse("kpiUnattributed", "Unattributed incidents", "AWS-UNK-001",
+                BigDecimal.valueOf(counts.unattributed()), null, shareOfTotal, null);
+    }
+
+    private record UnattributedCounts(long total, long unattributed) {
+    }
+
     public List<KpiResponse> computeExecutiveKpis(AnalyticalFilterRequest filter) {
         long unknownOrgId = organizationRepository.findByUnknownTrue()
                 .orElseThrow(() -> new IllegalStateException("dim_organization has no seeded is_unknown row"))

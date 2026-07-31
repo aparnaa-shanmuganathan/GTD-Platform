@@ -92,6 +92,12 @@ public enum ErrorCode {
     ERR_REGION_002("ERR-REGION-002", Category.REGION,
             "Requested region id does not exist", HttpStatus.NOT_FOUND),
 
+    // --- ORGANIZATION: Organization Workspace drill-down (Phase 8) ---
+    ERR_ORGANIZATION_001("ERR-ORGANIZATION-001", Category.ORGANIZATION,
+            "Organization drill-down requires exactly 1 organizationId", HttpStatus.BAD_REQUEST),
+    ERR_ORGANIZATION_002("ERR-ORGANIZATION-002", Category.ORGANIZATION,
+            "Requested organization id does not exist", HttpStatus.NOT_FOUND),
+
     // --- SYSTEM: catch-all ---
     ERR_SYSTEM_001("ERR-SYSTEM-001", Category.SYSTEM,
             "Unexpected internal error", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -134,6 +140,7 @@ public enum ErrorCode {
         REPORT,
         COMPARE,
         REGION,
+        ORGANIZATION,
         SYSTEM
     }
 }

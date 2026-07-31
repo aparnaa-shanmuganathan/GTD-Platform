@@ -107,7 +107,19 @@ class InsightServiceTest extends PostgresIntegrationTestBase {
         jdbcTemplate.execute("REFRESH MATERIALIZED VIEW mv_attacktype_year_agg");
         jdbcTemplate.execute("REFRESH MATERIALIZED VIEW mv_country_year_agg");
 
-        InsightsResponse insights = insightService.generateExecutiveInsights(new AnalyticalFilterRequest());
+        // Scoped to exactly this test's own 2093-2094 window - INSIGHT only respects the
+        // date-range half of the canonical filter (see InsightService's Javadoc), and both the
+        // growth-rate-deviation and ranking-delta callouts key off an unfiltered MAX(event_year)
+        // read across the whole shared, never-rolled-back test database otherwise. That
+        // "latest year" assumption held only so long as no other test class ever inserted a
+        // later year than 2094 - which stopped being true once a Phase 8 workspace integration
+        // test (importing real rows at a later synthetic year) ran before this one in the same
+        // suite. An unfiltered call here is fundamentally order-dependent on the whole suite,
+        // not just this test's own fixture.
+        AnalyticalFilterRequest filter = new AnalyticalFilterRequest();
+        filter.setStartDate(java.time.LocalDate.of(2093, 1, 1));
+        filter.setEndDate(java.time.LocalDate.of(2094, 12, 31));
+        InsightsResponse insights = insightService.generateExecutiveInsights(filter);
 
         assertThat(insights.items()).hasSizeGreaterThanOrEqualTo(2);
 
