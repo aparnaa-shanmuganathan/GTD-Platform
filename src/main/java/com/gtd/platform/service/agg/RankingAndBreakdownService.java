@@ -4,6 +4,8 @@ import com.gtd.platform.shared.api.AnalyticalFilterRequest;
 import com.gtd.platform.shared.api.ChartResponse;
 import com.gtd.platform.shared.api.RankingResponse;
 import com.gtd.platform.shared.api.RankingResponse.RankingEntry;
+import com.gtd.platform.shared.db.FactIncidentFilterSqlBuilder;
+import com.gtd.platform.shared.db.FactIncidentFilterSqlBuilder.BuiltFilter;
 import com.gtd.platform.shared.db.YearRangeSqlHelper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,24 +15,34 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * The Executive Workspace's top-countries ranking (CAC-AN-002) and
- * attack/weapon/target-type breakdown charts (CAC-AN-003) - all sourced
- * from the {@code mv_*_year_agg} materialized views (CLAUDE.md section 7),
- * an exact structural fit unlike {@link KpiAggregationService}'s KPIs (see
- * that class's Javadoc for why the two make opposite data-source choices).
+ * The Executive/Country/Region Workspaces' entity rankings (CAC-AN-002) and
+ * the Executive Workspace's attack/weapon/target-type breakdown charts
+ * (CAC-AN-003).
  *
- * <p>Only the date-range half of the canonical filter DTO applies here: each
- * view is already grouped by exactly one non-year dimension (its own), so
- * "top countries filtered by attack type" or similar cross-dimension
- * filtering isn't something a single materialized view can answer - see
- * CLAUDE.md section 12.
+ * <p>Every ranking (country, region, and - Phase 8 - organization/attack/
+ * weapon/target type) queries {@code fact_incident} directly via
+ * {@link #queryDirectRanking}, the same full-filter approach
+ * {@link KpiAggregationService}/{@code TrendService} use: every workspace's
+ * filter bar sends region/attack-type/etc. filters alongside date range, and
+ * a ranking that silently dropped everything but date range would show
+ * incident counts inconsistent with the rest of the filtered page. The three
+ * Executive-widget breakdown charts still source from the {@code
+ * mv_*_year_agg} materialized views (CLAUDE.md section 7) with
+ * date-range-only filtering (each view is grouped by exactly one non-year
+ * dimension, so it cannot answer an arbitrary simultaneous combination of
+ * dimension filters the way a direct {@code fact_incident} query can) - a
+ * known, narrower limitation than the rankings have, left as-is pending a
+ * similar fix if those compact widgets are found to need it too.
  *
- * <p>Attack/weapon/target breakdowns exclude their dimension's seeded
- * {@code is_unknown} row (AWS-UNK-001, CLAUDE.md section 8). The country
- * ranking does not: per Phase 3, {@code fact_incident.country_id} is never
- * the product of an unknown-value fallback (staging-level exclusion means
- * unresolvable countries are rejected at import, not normalized to
- * "Unknown"), so there is nothing to exclude.
+ * <p>AWS-UNK-001 (CLAUDE.md section 8) excludes the seeded {@code is_unknown}
+ * row from named-entity aggregates for Organization/Attack/Weapon/Target -
+ * {@link #queryDirectRanking}'s {@code excludeUnknown} parameter controls
+ * this per ranking. Country and Region rankings never exclude it: per Phase
+ * 3, {@code fact_incident.country_id} is never the product of an
+ * unknown-value fallback (staging-level exclusion means unresolvable
+ * countries are rejected at import, not normalized to "Unknown"), and
+ * regions are a closed, well-known set with no is_unknown fallback path
+ * either.
  */
 @Service
 public class RankingAndBreakdownService {
@@ -56,7 +68,41 @@ public class RankingAndBreakdownService {
      * existing behavior.
      */
     public RankingResponse topCountriesByIncidentCount(AnalyticalFilterRequest filter, int limit) {
-        List<CategoryCount> all = queryBreakdown(filter, "mv_country_year_agg", "country_id", "dim_country", false);
+        List<CategoryCount> all = queryDirectRanking(filter, "country_id", "dim_country", false);
+        return toRankingResponse("countryRanking", "Top countries by incident count", all, limit);
+    }
+
+    /** Region Workspace's ranking (Phase 8) - regions ranked by incident count against the full canonical filter. */
+    public RankingResponse topRegionsByIncidentCount(AnalyticalFilterRequest filter, int limit) {
+        List<CategoryCount> all = queryDirectRanking(filter, "region_id", "dim_region", false);
+        return toRankingResponse("regionRanking", "Top regions by incident count", all, limit);
+    }
+
+    /** Organization Workspace's ranking (Phase 8) - AWS-UNK-001 excludes the seeded is_unknown organization row. */
+    public RankingResponse topOrganizationsByIncidentCount(AnalyticalFilterRequest filter, int limit) {
+        List<CategoryCount> all = queryDirectRanking(filter, "organization_id", "dim_organization", true);
+        return toRankingResponse("organizationRanking", "Top organizations by incident count", all, limit);
+    }
+
+    /** Attack Workspace's ranking (Phase 8) - AWS-UNK-001 excludes the seeded is_unknown attack type row. */
+    public RankingResponse attackTypeRanking(AnalyticalFilterRequest filter, int limit) {
+        List<CategoryCount> all = queryDirectRanking(filter, "attack_type_id", "dim_attack_type", true);
+        return toRankingResponse("attackTypeRanking", "Attack types by incident count", all, limit);
+    }
+
+    /** Weapon Workspace's ranking (Phase 8) - AWS-UNK-001 excludes the seeded is_unknown weapon type row. */
+    public RankingResponse weaponTypeRanking(AnalyticalFilterRequest filter, int limit) {
+        List<CategoryCount> all = queryDirectRanking(filter, "weapon_type_id", "dim_weapon_type", true);
+        return toRankingResponse("weaponTypeRanking", "Weapon types by incident count", all, limit);
+    }
+
+    /** Target Workspace's ranking (Phase 8) - AWS-UNK-001 excludes the seeded is_unknown target type row. */
+    public RankingResponse targetTypeRanking(AnalyticalFilterRequest filter, int limit) {
+        List<CategoryCount> all = queryDirectRanking(filter, "target_type_id", "dim_target_type", true);
+        return toRankingResponse("targetTypeRanking", "Target types by incident count", all, limit);
+    }
+
+    private RankingResponse toRankingResponse(String id, String title, List<CategoryCount> all, int limit) {
         BigDecimal grandTotal = all.stream().map(CategoryCount::value).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<RankingEntry> entries = new ArrayList<>();
@@ -67,7 +113,35 @@ public class RankingAndBreakdownService {
                     : category.value().divide(grandTotal, 4, RoundingMode.HALF_UP);
             entries.add(new RankingEntry(rank++, category.label(), category.value(), share, category.entityId()));
         }
-        return new RankingResponse("countryRanking", "Top countries by incident count", entries);
+        return new RankingResponse(id, title, entries);
+    }
+
+    /**
+     * Ranks every row of {@code dimensionTable} by incident count against the full canonical
+     * filter (date range, region, country, attack/weapon/target type, organization - CAC-UI-003),
+     * by querying {@code fact_incident} directly rather than any {@code mv_*_year_agg} view - see
+     * this class's Javadoc for why a ranking needs the full filter set a single-dimension
+     * materialized view can't provide.
+     *
+     * <p>The WHERE clause's unqualified column names (e.g. {@code "region_id"}) are only
+     * unambiguous against a single-table {@code fact_incident} scope - {@code dim_country} also
+     * has its own {@code region_id} FK column, so applying the filter inside this subquery
+     * (before the join adds the dimension table's columns into scope) avoids an
+     * ambiguous-column-reference error the same way {@code KpiAggregationService}/{@code
+     * TrendService}'s direct (join-free) {@code fact_incident} queries never hit.
+     */
+    private List<CategoryCount> queryDirectRanking(AnalyticalFilterRequest filter, String fkColumn,
+            String dimensionTable, boolean excludeUnknown) {
+        BuiltFilter built = FactIncidentFilterSqlBuilder.build(filter);
+        String unknownClause = excludeUnknown ? " AND d.is_unknown = FALSE" : "";
+        String sql = "SELECT f." + fkColumn + " AS entity_id, d.name AS label, COUNT(*) AS total "
+                + "FROM (SELECT " + fkColumn + " FROM fact_incident WHERE " + built.whereClauseSql() + ") f "
+                + "JOIN " + dimensionTable + " d ON d.id = f." + fkColumn + unknownClause + " "
+                + "GROUP BY f." + fkColumn + ", d.name "
+                + "ORDER BY total DESC";
+
+        return jdbcTemplate.query(sql, built.params().toArray(), (rs, rowNum) ->
+                new CategoryCount(rs.getLong("entity_id"), rs.getString("label"), rs.getBigDecimal("total")));
     }
 
     public ChartResponse attackTypeBreakdown(AnalyticalFilterRequest filter) {

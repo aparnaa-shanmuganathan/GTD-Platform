@@ -86,6 +86,12 @@ public enum ErrorCode {
     ERR_COMPARE_003("ERR-COMPARE-003", Category.COMPARE,
             "Requested country id does not exist", HttpStatus.NOT_FOUND),
 
+    // --- REGION: Region Workspace drill-down (Phase 8) ---
+    ERR_REGION_001("ERR-REGION-001", Category.REGION,
+            "Region drill-down requires exactly 1 regionId", HttpStatus.BAD_REQUEST),
+    ERR_REGION_002("ERR-REGION-002", Category.REGION,
+            "Requested region id does not exist", HttpStatus.NOT_FOUND),
+
     // --- SYSTEM: catch-all ---
     ERR_SYSTEM_001("ERR-SYSTEM-001", Category.SYSTEM,
             "Unexpected internal error", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -127,6 +133,7 @@ public enum ErrorCode {
         REQUEST,
         REPORT,
         COMPARE,
+        REGION,
         SYSTEM
     }
 }

@@ -6,8 +6,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gtd.platform.shared.auth.AdminUser;
 import com.gtd.platform.shared.auth.AdminUserRepository;
+import com.gtd.platform.shared.db.DimAttackType;
+import com.gtd.platform.shared.db.DimAttackTypeRepository;
 import com.gtd.platform.shared.db.DimCountry;
 import com.gtd.platform.shared.db.DimCountryRepository;
+import com.gtd.platform.shared.db.DimRegion;
+import com.gtd.platform.shared.db.DimRegionRepository;
 import com.gtd.platform.testsupport.FormLoginClient;
 import com.gtd.platform.testsupport.FormLoginClient.LoginResult;
 import com.gtd.platform.testsupport.PostgresIntegrationTestBase;
@@ -15,7 +19,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +55,10 @@ class CountryWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private DimCountryRepository countryRepository;
+    @Autowired
+    private DimRegionRepository regionRepository;
+    @Autowired
+    private DimAttackTypeRepository attackTypeRepository;
 
     private FormLoginClient client;
     private String cookie;
@@ -100,6 +110,39 @@ class CountryWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
         assertThat(rankingJson.path("success").asBoolean()).isTrue();
         assertThat(rankingJson.path("data").path("entries").isArray()).isTrue();
 
+        // --- POST /api/country/ranking respects the region filter: this test's own North
+        // America countries (United States, Canada) must appear, and its own countries from
+        // other regions (Iraq, Afghanistan, Nigeria) must not. Not asserted as an exact set -
+        // this integration test shares one never-rolled-back database with every other
+        // integration test class (PostgresIntegrationTestBase), and at least one of them
+        // (ImportPipelineIntegrationTest) legitimately creates its own extra North America
+        // country ("Freedonia") there too. ---
+        DimRegion northAmerica = regionRepository.findByName("North America").orElseThrow();
+        String regionFilter = "{\"regionIds\":[" + northAmerica.getId() + "]}";
+        HttpResponse<String> regionFilteredResponse = client.postJson("/api/country/ranking", cookie, csrfToken, regionFilter);
+        assertThat(regionFilteredResponse.statusCode()).isEqualTo(200);
+        JsonNode regionFilteredEntries = JSON.readTree(regionFilteredResponse.body()).path("data").path("entries");
+        Set<String> regionFilteredLabels = new HashSet<>();
+        for (JsonNode entry : regionFilteredEntries) {
+            regionFilteredLabels.add(entry.path("label").asText());
+        }
+        assertThat(regionFilteredLabels).contains("United States", "Canada");
+        assertThat(regionFilteredLabels).doesNotContain("Iraq", "Afghanistan", "Nigeria");
+
+        // --- POST /api/country/ranking respects the attack-type filter: narrowing to one
+        // attack type must reduce the summed incident count below the true unfiltered total
+        // (queried fresh here rather than assumed as ROW_COUNT, since this database is shared,
+        // never-rolled-back across every integration test class). ---
+        HttpResponse<String> unfilteredRankingResponse = client.postJson("/api/country/ranking", cookie, csrfToken, "{}");
+        long unfilteredTotal = sumRankingValues(JSON.readTree(unfilteredRankingResponse.body()).path("data").path("entries"));
+
+        DimAttackType bombing = attackTypeRepository.findByName("Bombing/Explosion").orElseThrow();
+        String attackFilter = "{\"attackTypeIds\":[" + bombing.getId() + "]}";
+        HttpResponse<String> attackFilteredResponse = client.postJson("/api/country/ranking", cookie, csrfToken, attackFilter);
+        assertThat(attackFilteredResponse.statusCode()).isEqualTo(200);
+        long attackFilteredTotal = sumRankingValues(JSON.readTree(attackFilteredResponse.body()).path("data").path("entries"));
+        assertThat(attackFilteredTotal).isGreaterThan(0).isLessThan(unfilteredTotal);
+
         // --- POST /api/country/compare: 4 real countries ---
         String compareBody = "{\"countryIds\":[" + us.getId() + "," + canada.getId() + ","
                 + iraq.getId() + "," + afghanistan.getId() + "]}";
@@ -141,6 +184,14 @@ class CountryWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
                 "{\"countryIds\":[999999999]}");
         assertThat(notFoundResponse.statusCode()).isEqualTo(404);
         assertThat(JSON.readTree(notFoundResponse.body()).path("error").path("code").asText()).isEqualTo("ERR-COMPARE-003");
+    }
+
+    private static long sumRankingValues(JsonNode entries) {
+        long total = 0;
+        for (JsonNode entry : entries) {
+            total += entry.path("value").asLong();
+        }
+        return total;
     }
 
     private void importAndConfirm(String csvContent) throws Exception {
