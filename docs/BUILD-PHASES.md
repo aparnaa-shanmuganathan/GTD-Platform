@@ -217,6 +217,27 @@ This is the execution plan for turning the approved HTML demo (`reference/gtd-pl
 
 ---
 
+## Access Model Change — public viewing, admin-gated import only
+
+**Goal:** Reopen a Phase 2 decision at the user's explicit direction (`CLAUDE.md`'s own rule for exactly this situation): every analytical workspace becomes publicly viewable with no login required; authentication gates dataset import only (and, later, Administration/CONFIG). Do this **before** Phase 8, so the six new workspaces built there inherit the correct pattern from the start instead of needing the same retrofit done twice.
+
+**Prompt to paste:**
+
+> Read `CLAUDE.md`'s new "Access model amendment" subsection under section 12 in full before starting.
+>
+> Change the platform's access model:
+> 1. In `SecurityConfig`, replace the current `anyRequest().authenticated()` rule so that only `/api/import/**` requires an authenticated session. Everything else (`/`, `/workspace/**`, `/api/executive/**`, `/api/country/**`, `/api/report/**`, static assets) becomes `permitAll()`. `/login` and `/logout` keep working exactly as they do now (an admin still needs to sign in specifically to trigger an import), and CSRF protection stays enabled everywhere it already is - don't touch that.
+> 2. Every controller that currently requires an `Authentication`/`Principal` parameter just to render a page (`HomeController`, `ExecutiveController`, `CountryController`, `ReportController`) needs to accept it as nullable/optional instead, and pass a nullable `username` into the model.
+> 3. Every template with a top-bar `${username}` reference and a sign-out form (`index.html`, `executive.html`, `country.html`, `report.html`) needs two branches: signed-in (current behavior: username + working sign-out form, CSRF token included per the Phase 7 fix) versus anonymous (no username shown, a simple "Admin sign-in" link to `/login` instead of the sign-out form). Nothing here should NPE for an anonymous visitor.
+> 4. Update `AuthIntegrationTest` and the Phase 4/5/6 workspace integration tests: anonymous requests to workspace pages/analytical endpoints should now assert `200`, not a redirect to `/login`. Add a new test proving `/api/import/upload` (and `/status`/`/confirm`) still correctly reject an anonymous request.
+> 5. Leave `ImportController` itself alone beyond confirming its existing auth requirement still holds - it was already correctly gated and isn't part of what's changing.
+>
+> Run the full suite and confirm nothing else regressed - this touches shared infrastructure every later workspace depends on.
+
+**Acceptance criteria:** Anonymous access works for every workspace and analytical endpoint; `/api/import/**` still rejects unauthenticated requests; login/logout still function correctly for the admin; CSRF still enforced everywhere; `mvn clean verify` passes with the full suite, including new/updated tests for both the public and admin-gated paths.
+
+---
+
 ## Phase 8 — Remaining Core Analytical Workspaces
 
 **Goal:** Region, Organization, Attack, Weapon, Target, Casualty — each following the exact same Shared Component Library pattern established in Phases 4–5, so this should move noticeably faster than the MVP phases.

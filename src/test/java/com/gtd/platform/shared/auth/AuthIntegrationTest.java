@@ -106,10 +106,17 @@ class AuthIntegrationTest extends PostgresIntegrationTestBase {
                 .toList();
         assertThat(matches).hasSize(1);
 
-        // The old session must no longer be authenticated.
+        // "/" is publicly viewable regardless of session state (CLAUDE.md section 12's
+        // access model amendment - authentication gates dataset import only), so it no
+        // longer redirects an unauthenticated/invalidated session to /login; it now
+        // renders the anonymous branch of the page directly.
         HttpResponse<String> afterLogout = client.getWithCookie("/", authenticatedCookie);
-        assertThat(afterLogout.statusCode()).isIn(302, 303);
-        assertThat(afterLogout.headers().firstValue("Location")).hasValueSatisfying(
-                location -> assertThat(location).contains("/login"));
+        assertThat(afterLogout.statusCode()).isEqualTo(200);
+
+        // The old session itself is genuinely gone (not just "/" being public) -
+        // proven against /api/import/**, the one surface still gated by authentication.
+        HttpResponse<String> importStatusAfterLogout =
+                client.postJsonWithoutCsrfToken("/api/import/status", authenticatedCookie, "{\"importBatchId\":1}");
+        assertThat(importStatusAfterLogout.statusCode()).isIn(302, 401, 403);
     }
 }

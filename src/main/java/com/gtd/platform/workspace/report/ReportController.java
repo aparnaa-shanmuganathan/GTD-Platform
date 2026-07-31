@@ -40,6 +40,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * {@code LoginController} documented in Phase 2 for non-JSON responses -
  * a browser-triggered download of a binary PDF/CSV cannot be wrapped in a
  * JSON envelope.
+ *
+ * <p>Publicly viewable per the access model amendment (CLAUDE.md section
+ * 12) - {@code principal} is {@code null} for an anonymous visitor.
+ * {@link #generate} still works anonymously, just with a {@code null}
+ * {@code adminUserId} attribution on the generated report.
  */
 @Controller
 public class ReportController {
@@ -67,7 +72,7 @@ public class ReportController {
     public String reportWorkspace(Model model, Principal principal) {
         YearBounds yearBounds = queryYearBounds();
 
-        model.addAttribute("username", principal.getName());
+        model.addAttribute("username", principal != null ? principal.getName() : null);
         model.addAttribute("minYear", yearBounds.minYear());
         model.addAttribute("maxYear", yearBounds.maxYear());
         model.addAttribute("regions", regionRepository.findAll().stream()
@@ -115,6 +120,9 @@ public class ReportController {
     }
 
     private Long currentAdminUserId(Principal principal) {
+        if (principal == null) {
+            return null;
+        }
         return adminUserRepository.findByUsername(principal.getName())
                 .map(AdminUser::getId)
                 .orElse(null);

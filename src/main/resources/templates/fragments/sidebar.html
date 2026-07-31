@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Workspace sidebar nav - CLAUDE.md section 4's 15-workspace list, in that
+  section's exact order/wording. A single shared fragment, th:replace'd into
+  every real workspace page (the same pattern fragments/footer.html already
+  established for the attribution footer), so the nav list has exactly one
+  place to update as later phases build out the remaining 12 workspaces -
+  never copy-pasted per page like the topbar markup.
+
+  Only Executive, Country, and Report are real links (Phases 4-6, the only
+  workspaces that exist). Every other entry is a disabled placeholder
+  marking a workspace CLAUDE.md's frozen architecture commits to but that
+  hasn't been built yet - deliberately never a link to a route that would
+  404.
+-->
+<nav th:fragment="nav(active)" class="sidebar" aria-label="Workspaces">
+  <div class="nav-group-label">Analytical Workspaces</div>
+  <ul class="nav-list">
+    <li><a th:href="@{/workspace/executive}" class="nav-item" th:aria-current="${active == 'executive'} ? 'page' : null">
+      <span class="nav-label">Executive</span><span class="nav-tag">EXEC</span>
+    </a></li>
+    <li><a th:href="@{/workspace/country}" class="nav-item" th:aria-current="${active == 'country'} ? 'page' : null">
+      <span class="nav-label">Country</span><span class="nav-tag">COUNTRY</span>
+    </a></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Region</span><span class="nav-tag">REGION</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Organization</span><span class="nav-tag">ORG</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Attack</span><span class="nav-tag">ATTACK</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Weapon</span><span class="nav-tag">WEAPON</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Target</span><span class="nav-tag">TARGET</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Casualty</span><span class="nav-tag">CASUALTY</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Statistical</span><span class="nav-tag">STAT</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Geospatial</span><span class="nav-tag">MAP</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><a th:href="@{/workspace/report}" class="nav-item" th:aria-current="${active == 'report'} ? 'page' : null">
+      <span class="nav-label">Report</span><span class="nav-tag">REPORT-WS</span>
+    </a></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Administration</span><span class="nav-tag">ADMIN</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Data Quality Center</span><span class="nav-tag">DQ</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">Audit &amp; Activity Log</span><span class="nav-tag">AUDIT</span><span class="soon-badge">Soon</span>
+    </span></li>
+    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
+      <span class="nav-label">System Health Dashboard</span><span class="nav-tag">HEALTH</span><span class="soon-badge">Soon</span>
+    </span></li>
+  </ul>
+</nav>
+</body>
+</html>

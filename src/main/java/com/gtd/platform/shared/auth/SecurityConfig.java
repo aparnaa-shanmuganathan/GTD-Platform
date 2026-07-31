@@ -23,6 +23,14 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
  * this filter chain stores in the session persists in Postgres, not just
  * server memory - which is what lets a session survive an application
  * restart (see {@code SessionPersistenceAcrossRestartTest}).
+ *
+ * <p><strong>Access model (CLAUDE.md section 12, "Access model amendment"):
+ * </strong> authentication gates dataset import only, not viewing. Every
+ * analytical workspace page and API is {@code permitAll()}; only
+ * {@code /api/import/**} requires an authenticated admin session. CSRF
+ * protection is untouched by this change and still applies to every
+ * state-changing POST regardless of whether that endpoint also requires
+ * authentication.
  */
 @Configuration
 @EnableWebSecurity
@@ -38,8 +46,8 @@ public class SecurityConfig {
             throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/css/**", "/fonts/**", "/js/**", "/actuator/health").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/import/**").authenticated()
+                        .anyRequest().permitAll())
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")

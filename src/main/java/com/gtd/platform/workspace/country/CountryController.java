@@ -40,6 +40,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * envelope (a server-rendered page route, not a data API endpoint - the
  * same reasoning {@code ExecutiveController} documented in Phase 4); the
  * three {@code POST /api/country/*} endpoints do.
+ *
+ * <p>Publicly viewable per the access model amendment (CLAUDE.md section
+ * 12) - {@code principal} is {@code null} for an anonymous visitor.
  */
 @Controller
 public class CountryController {
@@ -76,7 +79,7 @@ public class CountryController {
         RankingResponse ranking = rankingAndBreakdownService.topCountriesByIncidentCount(unfiltered, COUNTRY_RANKING_LIMIT);
         YearBounds yearBounds = queryYearBounds();
 
-        model.addAttribute("username", principal.getName());
+        model.addAttribute("username", principal != null ? principal.getName() : null);
         model.addAttribute("minYear", yearBounds.minYear());
         model.addAttribute("maxYear", yearBounds.maxYear());
         model.addAttribute("regions", regionRepository.findAll().stream()

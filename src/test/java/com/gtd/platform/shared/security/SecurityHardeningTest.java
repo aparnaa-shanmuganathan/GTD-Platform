@@ -19,15 +19,18 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Phase 7 hardening pass, security review (CLAUDE.md section 12): proves
- * three cross-cutting guarantees {@link com.gtd.platform.shared.auth.SecurityConfig}
- * is supposed to provide, against real HTTP requests rather than just
- * reading the config and assuming - a representative sample of protected
- * {@code POST} endpoints across every workspace/service actually reject
- * unauthenticated requests, CSRF protection actually rejects a
- * state-changing request with no token, and the session cookie is
- * {@code HttpOnly} without being (incorrectly, for a plain-HTTP local
- * deployment) marked {@code Secure}.
+ * Phase 7 hardening pass, security review (CLAUDE.md section 12), updated
+ * for the post-Phase-7 access model amendment (also section 12):
+ * authentication now gates dataset import only, so this class proves - all
+ * against real HTTP requests rather than just reading the config and
+ * assuming - that {@code /api/import/**} still rejects an unauthenticated
+ * caller, that every analytical workspace page/POST endpoint is now
+ * genuinely publicly reachable, that CSRF protection still rejects a
+ * state-changing request with no token (unchanged by the access model
+ * amendment - it applies regardless of whether an endpoint also requires
+ * authentication), and that the session cookie is {@code HttpOnly} without
+ * being (incorrectly, for a plain-HTTP local deployment) marked
+ * {@code Secure}.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SecurityHardeningTest extends PostgresIntegrationTestBase {
@@ -48,42 +51,67 @@ class SecurityHardeningTest extends PostgresIntegrationTestBase {
     }
 
     @Test
-    void protectedPostEndpointsAcrossEveryWorkspaceRejectUnauthenticatedRequests() throws Exception {
-        // One representative POST endpoint per workspace/service that exists so far - not
-        // exhaustive, but spans IMPORT, Executive, Country, and Report so a gap in any one
-        // controller's security configuration (e.g. a missing requestMatcher) would show up
-        // here rather than only being caught by that workspace's own happy-path test, which
-        // always logs in first and would never notice.
-        List<String> protectedPostEndpoints = List.of(
-                "/api/import/status",
+    void importEndpointsStillRejectUnauthenticatedRequests() throws Exception {
+        // IMPORT is the one surface the access model amendment leaves gated by
+        // authentication (CLAUDE.md section 12) - every /api/import/** endpoint must still
+        // reject an anonymous caller. Spring Security's authorization filter runs ahead of
+        // Spring MVC dispatch, so this holds regardless of each endpoint's actual body shape
+        // (multipart upload vs. JSON status/confirm) - the request never reaches
+        // ImportController at all.
+        List<String> importEndpoints = List.of("/api/import/upload", "/api/import/status", "/api/import/confirm");
+
+        for (String path : importEndpoints) {
+            HttpResponse<String> response = client.postJsonWithoutCsrfToken(path, "", "{}");
+            assertThat(response.statusCode())
+                    .withFailMessage("Expected %s to reject an unauthenticated request, but got %s", path, response.statusCode())
+                    .isIn(302, 401, 403);
+        }
+    }
+
+    @Test
+    void analyticalPostEndpointsAreNowPubliclyAccessible() throws Exception {
+        // CLAUDE.md section 12's access model amendment: every analytical workspace endpoint
+        // is publicly viewable with no login required. CSRF protection is untouched by the
+        // amendment though - it still applies to every state-changing POST regardless of
+        // authentication, so this uses a real (anonymous) session + CSRF token rather than
+        // an authenticated one, proving public access without disabling the CSRF check.
+        HttpResponse<String> loginPage = client.getWithCookie("/login", "");
+        String anonymousCookie = sessionCookieFrom(loginPage);
+        String anonymousCsrfToken = FormLoginClient.extractCsrfToken(loginPage.body());
+
+        List<String> publicPostEndpoints = List.of(
                 "/api/executive/dashboard",
                 "/api/country/ranking",
                 "/api/report/history"
         );
 
-        for (String path : protectedPostEndpoints) {
-            HttpResponse<String> response = client.postJsonWithoutCsrfToken(path, "", "{}");
+        for (String path : publicPostEndpoints) {
+            HttpResponse<String> response = client.postJson(path, anonymousCookie, anonymousCsrfToken, "{}");
             assertThat(response.statusCode())
-                    .withFailMessage("Expected %s to reject an unauthenticated request, but got %s", path, response.statusCode())
-                    .isNotEqualTo(200);
-            // Spring Security's default form-login entry point redirects unauthenticated
-            // requests to /login regardless of endpoint - it never reaches the controller.
-            assertThat(response.statusCode()).isIn(302, 401, 403);
+                    .withFailMessage("Expected %s to be publicly accessible, but got %s", path, response.statusCode())
+                    .isEqualTo(200);
         }
     }
 
     @Test
-    void protectedWorkspacePagesRejectUnauthenticatedRequests() throws Exception {
-        List<String> protectedPages = List.of("/", "/workspace/executive", "/workspace/country", "/workspace/report");
+    void analyticalWorkspacePagesAreNowPubliclyAccessible() throws Exception {
+        List<String> publicPages = List.of("/", "/workspace/executive", "/workspace/country", "/workspace/report");
 
-        for (String path : protectedPages) {
+        for (String path : publicPages) {
             HttpResponse<String> response = client.getWithCookie(path, "");
             assertThat(response.statusCode())
-                    .withFailMessage("Expected %s to redirect an unauthenticated request to login, but got %s", path, response.statusCode())
-                    .isIn(302, 303);
-            assertThat(response.headers().firstValue("Location")).hasValueSatisfying(
-                    location -> assertThat(location).contains("/login"));
+                    .withFailMessage("Expected %s to be publicly accessible, but got %s", path, response.statusCode())
+                    .isEqualTo(200);
         }
+    }
+
+    /** Extracts the raw {@code SESSION=...} cookie a response set, for reuse as a request {@code Cookie} header. */
+    private static String sessionCookieFrom(HttpResponse<?> response) {
+        return response.headers().allValues("Set-Cookie").stream()
+                .filter(h -> h.startsWith("SESSION="))
+                .map(h -> h.split(";", 2)[0])
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No SESSION cookie in response"));
     }
 
     @Test
