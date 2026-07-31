@@ -144,6 +144,44 @@ public class RankingAndBreakdownService {
                 new CategoryCount(rs.getLong("entity_id"), rs.getString("label"), rs.getBigDecimal("total")));
     }
 
+    /**
+     * Weapon Workspace's "linkage to casualty severity" chart (Phase 8): average
+     * fatalities/injuries per incident, one bar-chart category per non-unknown weapon type
+     * (AWS-UNK-001), against the full canonical filter. Genuinely new - every other
+     * breakdown/ranking in this class {@code COUNT}s incidents; this is the first to average
+     * casualty columns instead, so it doesn't fit {@link #queryDirectRanking}'s shape.
+     *
+     * <p>{@code AVG(f.nkill)}/{@code AVG(f.nwound)} skip their own {@code NULL} rows per
+     * standard SQL (never coalesced to zero, CLAUDE.md sections 7/8) - a weapon type where
+     * every matching incident has unknown fatalities correctly yields a {@code NULL} average
+     * rather than a misleading zero, the same convention the {@code mv_*_year_agg} views'
+     * {@code fatality_count}/{@code injury_count} already established.
+     */
+    public ChartResponse weaponCasualtySeverityBreakdown(AnalyticalFilterRequest filter) {
+        BuiltFilter built = FactIncidentFilterSqlBuilder.build(filter);
+        String sql = "SELECT d.name AS label, "
+                + "ROUND(AVG(f.nkill), 2) AS avg_fatalities, ROUND(AVG(f.nwound), 2) AS avg_injuries "
+                + "FROM (SELECT weapon_type_id, nkill, nwound FROM fact_incident WHERE " + built.whereClauseSql() + ") f "
+                + "JOIN dim_weapon_type d ON d.id = f.weapon_type_id AND d.is_unknown = FALSE "
+                + "GROUP BY d.name "
+                + "ORDER BY d.name";
+
+        List<WeaponSeverityRow> rows = jdbcTemplate.query(sql, built.params().toArray(), (rs, rowNum) ->
+                new WeaponSeverityRow(rs.getString("label"), rs.getBigDecimal("avg_fatalities"), rs.getBigDecimal("avg_injuries")));
+
+        List<String> categories = rows.stream().map(WeaponSeverityRow::label).toList();
+        List<BigDecimal> avgFatalities = rows.stream().map(WeaponSeverityRow::avgFatalities).toList();
+        List<BigDecimal> avgInjuries = rows.stream().map(WeaponSeverityRow::avgInjuries).toList();
+
+        return new ChartResponse("weaponSeverityChart", "Avg casualties per incident by weapon type",
+                ChartResponse.ChartType.BAR, categories, List.of(
+                        new ChartResponse.ChartSeries("Avg fatalities/incident", avgFatalities),
+                        new ChartResponse.ChartSeries("Avg injuries/incident", avgInjuries)));
+    }
+
+    private record WeaponSeverityRow(String label, BigDecimal avgFatalities, BigDecimal avgInjuries) {
+    }
+
     public ChartResponse attackTypeBreakdown(AnalyticalFilterRequest filter) {
         return breakdownChart(filter, "attackChart", "Attack type", "mv_attacktype_year_agg", "attack_type_id", "dim_attack_type");
     }
