@@ -39,9 +39,9 @@
     <li><a th:href="@{/workspace/target}" class="nav-item" th:aria-current="${active == 'target'} ? 'page' : null">
       <span class="nav-label">Target</span><span class="nav-tag">TARGET</span>
     </a></li>
-    <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
-      <span class="nav-label">Casualty</span><span class="nav-tag">CASUALTY</span><span class="soon-badge">Soon</span>
-    </span></li>
+    <li><a th:href="@{/workspace/casualty}" class="nav-item" th:aria-current="${active == 'casualty'} ? 'page' : null">
+      <span class="nav-label">Casualty</span><span class="nav-tag">CASUALTY</span>
+    </a></li>
     <li><span class="nav-item is-disabled" aria-disabled="true" tabindex="-1">
       <span class="nav-label">Statistical</span><span class="nav-tag">STAT</span><span class="soon-badge">Soon</span>
     </span></li>
