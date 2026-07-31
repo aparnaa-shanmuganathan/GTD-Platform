@@ -1,5 +1,7 @@
-# Build output
-target/
+# Build output. Anchored to the repo root (not a bare "target/") - Phase 8's Target
+# Workspace package (src/.../workspace/target/) is also literally named "target", and an
+# unanchored pattern would silently exclude its source files from every future commit too.
+/target/
 *.class
 
 # Logs

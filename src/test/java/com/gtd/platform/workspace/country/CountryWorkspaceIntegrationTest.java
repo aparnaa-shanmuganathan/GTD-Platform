@@ -165,7 +165,13 @@ class CountryWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
         assertThat(drilldownJson.path("success").asBoolean()).isTrue();
         assertThat(drilldownJson.path("data").path("countryName").asText()).isEqualTo("United States");
         int drilldownIncidents = drilldownJson.path("data").path("kpis").get(0).path("value").asInt();
-        assertThat(drilldownIncidents).isGreaterThan(0).isLessThan(ROW_COUNT);
+        // Drilldown is intentionally unfiltered by date (only countryIds is scoped), so United
+        // States' total spans every integration test class that has ever imported US rows into
+        // this shared, never-rolled-back database - not just this test's own ROW_COUNT. Bounded
+        // instead against the live global unfiltered total (queried above): one country's count
+        // must be strictly less than the sum across every country, which holds regardless of how
+        // many other test classes' rows have accumulated.
+        assertThat(drilldownIncidents).isGreaterThan(0).isLessThan((int) unfilteredTotal);
 
         // --- Validation: compare with only 1 country ---
         HttpResponse<String> tooFewResponse = client.postJson("/api/country/compare", cookie, csrfToken,
