@@ -86,6 +86,10 @@
           <option value="heat">Heatmap</option>
         </select>
       </div>
+      <label class="filter-chip" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="filterChoropleth" checked style="width:auto;">
+        <span>Choropleth</span>
+      </label>
       <button type="button" class="btn btn-sm" id="clearPolygonBtn" style="display:none;">Clear drawn region</button>
     </div>
 
@@ -102,11 +106,13 @@
         incidents to a hand-drawn region.
       </p>
       <div id="geoMapWrap" style="height:520px;border:1px solid var(--border);border-radius:8px;"></div>
+      <div id="choroplethLegend" class="field-hint" style="margin-top:10px;display:none;"></div>
       <div id="boundaryUnavailableNotice" class="field-hint" style="margin-top:10px;display:none;">
         Choropleth boundary data is not installed for this deployment - per-country incident
         counts below are real and complete, but cannot be drawn as colored country polygons
         until a boundary GeoJSON file is configured (<code>gtd.geospatial.boundary-geojson-path</code>).
       </div>
+      <div id="choroplethMatchNotice" class="field-hint" style="margin-top:6px;display:none;"></div>
     </div>
 
     <div class="panel">
@@ -141,6 +147,7 @@
   window.MIN_YEAR = /*[[${minYear}]]*/ null;
   window.MAX_YEAR = /*[[${maxYear}]]*/ null;
   window.TILE_URL_TEMPLATE = /*[[${tileUrlTemplate}]]*/ '/img/map-placeholder-tile.png';
+  window.BOUNDARY_NAME_PROPERTIES = /*[[${boundaryNameProperties}]]*/ [];
   /*]]>*/
 </script>
 <script th:src="@{/js/geospatial.js}"></script>

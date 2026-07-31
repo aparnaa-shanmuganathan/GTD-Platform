@@ -9,14 +9,35 @@
  * documented, not-yet-sourced deployment prerequisite (CLAUDE.md section
  * 13, open item 5). Swapping in real tiles is a config change
  * (gtd.geospatial.tile-url-template), not a code change here.
+ *
+ * The choropleth layer fetches the vendored Natural Earth 1:110m boundary
+ * GeoJSON (GET /api/geospatial/boundaries) once and matches each polygon to
+ * a dim_country.name by trying, in order, every property named in
+ * window.BOUNDARY_NAME_PROPERTIES (several standard Natural Earth name
+ * fields - no single one covers everything, and there's no ISO-code column
+ * to join on more robustly). KNOWN_NAME_ALIASES below covers a couple of
+ * genuine real-world country renames the source data doesn't reflect
+ * (Macedonia -> North Macedonia, Swaziland -> eSwatini). What's left after
+ * that - GTD-coded historical/defunct political entities with no modern
+ * polygon (Soviet Union, Yugoslavia, Zaire, etc.), plus a handful of
+ * micro-states this simplified 1:110m file omits entirely - is a real,
+ * disclosed limitation: those countries still show real counts in the
+ * ranked list below, just not as a colored polygon.
  */
 (function () {
   'use strict';
+
+  var KNOWN_NAME_ALIASES = {
+    'North Macedonia': 'Macedonia',
+    'eSwatini': 'Swaziland'
+  };
 
   var map;
   var tileLayer;
   var clusterLayer;
   var heatLayer;
+  var choroplethLayer;
+  var boundaryFeaturesPromise = null;
   var drawnItems;
   var drawControl;
   var lastMap = null;
@@ -86,6 +107,11 @@
       attribution: 'Placeholder tile layer - offline tile package not yet installed'
     });
     tileLayer.addTo(map);
+
+    // Added right after the tile layer (and before markers/heat below) so a colored polygon
+    // layer never draws over point markers - Leaflet stacks later-added layers on top.
+    choroplethLayer = L.geoJSON(null, { style: choroplethFeatureStyle, onEachFeature: bindChoroplethTooltip });
+    choroplethLayer.addTo(map);
 
     clusterLayer = L.markerClusterGroup();
     drawnItems = new L.FeatureGroup();
@@ -162,9 +188,140 @@
   /* =====================================================================
      CHOROPLETH (per-country counts; colored polygons only if boundariesAvailable)
      ===================================================================== */
-  function renderChoropleth(mapData) {
-    qs('boundaryUnavailableNotice').style.display = mapData.boundariesAvailable ? 'none' : '';
+  var CHOROPLETH_COLOR_SCALE = ['#dbeafe', '#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8'];
+  var choroplethMaxValue = 0;
 
+  function fetchBoundaries() {
+    if (!boundaryFeaturesPromise) {
+      boundaryFeaturesPromise = fetch('/api/geospatial/boundaries')
+          .then(function (resp) {
+            if (!resp.ok) {
+              throw new Error('boundaries fetch failed: ' + resp.status);
+            }
+            return resp.json();
+          });
+    }
+    return boundaryFeaturesPromise;
+  }
+
+  function candidateNamesForFeature(feature) {
+    var props = feature.properties || {};
+    var names = [];
+    (window.BOUNDARY_NAME_PROPERTIES || []).forEach(function (key) {
+      var v = props[key];
+      if (v) {
+        names.push(v);
+        if (KNOWN_NAME_ALIASES[v]) {
+          names.push(KNOWN_NAME_ALIASES[v]);
+        }
+      }
+    });
+    return names;
+  }
+
+  function matchFeatureToEntry(feature, countByLabel) {
+    var names = candidateNamesForFeature(feature);
+    for (var i = 0; i < names.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(countByLabel, names[i])) {
+        return { label: names[i], value: countByLabel[names[i]] };
+      }
+    }
+    return null;
+  }
+
+  function colorForValue(value) {
+    if (!value || value <= 0 || choroplethMaxValue <= 0) {
+      return CHOROPLETH_COLOR_SCALE[0];
+    }
+    var t = Math.log(1 + value) / Math.log(1 + choroplethMaxValue);
+    var idx = Math.round(t * (CHOROPLETH_COLOR_SCALE.length - 1));
+    return CHOROPLETH_COLOR_SCALE[Math.max(0, Math.min(CHOROPLETH_COLOR_SCALE.length - 1, idx))];
+  }
+
+  function choroplethFeatureStyle(feature) {
+    var matched = feature.properties && feature.properties.__matched;
+    return {
+      fillColor: matched ? colorForValue(feature.properties.__value) : 'transparent',
+      fillOpacity: matched ? 0.75 : 0,
+      color: matched ? 'rgba(15,23,42,0.35)' : 'transparent',
+      weight: 1
+    };
+  }
+
+  function bindChoroplethTooltip(feature, layer) {
+    if (feature.properties && feature.properties.__matched) {
+      layer.bindTooltip(feature.properties.__label + ': ' + fmt(feature.properties.__value), { sticky: true });
+    }
+  }
+
+  function renderLegend() {
+    if (choroplethMaxValue <= 0) {
+      qs('choroplethLegend').style.display = 'none';
+      return;
+    }
+    var swatches = CHOROPLETH_COLOR_SCALE.map(function (c) {
+      return '<span style="display:inline-block;width:18px;height:12px;background:' + c + ';border-radius:2px;"></span>';
+    }).join('');
+    qs('choroplethLegend').innerHTML = 'Incidents per country: 1 '
+        + '<span style="display:inline-flex;gap:2px;vertical-align:middle;margin:0 6px;">' + swatches + '</span> '
+        + fmt(choroplethMaxValue) + ' (log-scaled)';
+    qs('choroplethLegend').style.display = '';
+  }
+
+  function renderChoroplethPolygons(mapData) {
+    if (!mapData.boundariesAvailable || !qs('filterChoropleth').checked) {
+      choroplethLayer.clearLayers();
+      choroplethMaxValue = 0;
+      qs('choroplethLegend').style.display = 'none';
+      qs('choroplethMatchNotice').style.display = 'none';
+      return;
+    }
+
+    var entries = mapData.choropleth || [];
+    var countByLabel = {};
+    entries.forEach(function (e) {
+      countByLabel[e.label] = Number(e.value) || 0;
+    });
+    choroplethMaxValue = entries.reduce(function (max, e) {
+      return Math.max(max, Number(e.value) || 0);
+    }, 0);
+
+    fetchBoundaries().then(function (featureCollection) {
+      var matchedLabels = {};
+      var features = (featureCollection.features || []).map(function (feature) {
+        var match = matchFeatureToEntry(feature, countByLabel);
+        var clone = Object.assign({}, feature, { properties: Object.assign({}, feature.properties) });
+        if (match) {
+          clone.properties.__matched = true;
+          clone.properties.__label = match.label;
+          clone.properties.__value = match.value;
+          matchedLabels[match.label] = true;
+        } else {
+          clone.properties.__matched = false;
+        }
+        return clone;
+      });
+
+      choroplethLayer.clearLayers();
+      choroplethLayer.addData({ type: 'FeatureCollection', features: features });
+      renderLegend();
+
+      var matchedCount = Object.keys(matchedLabels).length;
+      var noticeEl = qs('choroplethMatchNotice');
+      if (matchedCount < entries.length) {
+        noticeEl.textContent = matchedCount + ' of ' + entries.length + ' countries with incidents are shown as '
+            + 'colored polygons. The rest (historical/defunct political entities GTD codes separately, or '
+            + 'micro-states this simplified boundary file omits) still show real counts in the ranked list below.';
+        noticeEl.style.display = '';
+      } else {
+        noticeEl.style.display = 'none';
+      }
+    }).catch(function (err) {
+      showToast('Choropleth failed to load', String(err));
+    });
+  }
+
+  function renderChoroplethRanking(mapData) {
     var entries = mapData.choropleth || [];
     if (entries.length === 0) {
       qs('choroplethRanking').innerHTML = '<p class="insight-empty">No data available for the selected filters.</p>';
@@ -183,6 +340,12 @@
           + '</div>';
     }).join('');
     qs('choroplethRanking').innerHTML = html;
+  }
+
+  function renderChoropleth(mapData) {
+    qs('boundaryUnavailableNotice').style.display = mapData.boundariesAvailable ? 'none' : '';
+    renderChoroplethPolygons(mapData);
+    renderChoroplethRanking(mapData);
   }
 
   /* =====================================================================
@@ -313,6 +476,11 @@
     qs('filterRegion').addEventListener('change', applyFilters);
     qs('filterAttack').addEventListener('change', applyFilters);
     qs('filterLayer').addEventListener('change', renderPointLayer);
+    qs('filterChoropleth').addEventListener('change', function () {
+      if (lastMap) {
+        renderChoroplethPolygons(lastMap);
+      }
+    });
 
     qs('clearPolygonBtn').addEventListener('click', function () {
       currentPolygon = null;

@@ -8,10 +8,16 @@ import com.gtd.platform.shared.api.MapResponse.IncidentPoint;
 import com.gtd.platform.shared.api.RankingResponse;
 import com.gtd.platform.shared.db.FactIncidentFilterSqlBuilder;
 import com.gtd.platform.shared.db.FactIncidentFilterSqlBuilder.BuiltFilter;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -70,6 +76,24 @@ public class GeospatialQueryService {
         return new MapResponse("geoMap", points, totalIncidentCount, geocodedCount, choropleth, boundariesAvailable());
     }
 
+    /**
+     * Raw bytes of the configured boundary GeoJSON, for {@code GET /api/geospatial/boundaries}
+     * to stream back to the client. One code path regardless of whether {@code
+     * boundaryGeojsonPath} resolves to a vendored classpath resource (the default, a leading
+     * {@code "/"} under {@code static/}) or an admin-supplied absolute filesystem path (a
+     * richer file dropped in at deployment time, per this class's Javadoc) - the client never
+     * needs to know which.
+     */
+    public Optional<byte[]> readBoundaryGeojson() {
+        return resolveBoundaryResource().filter(Resource::isReadable).map(resource -> {
+            try {
+                return resource.getContentAsByteArray();
+            } catch (IOException e) {
+                throw new UncheckedIOException("Failed to read configured boundary GeoJSON: " + boundaryGeojsonPath, e);
+            }
+        });
+    }
+
     private long countMatching(AnalyticalFilterRequest filter) {
         BuiltFilter built = FactIncidentFilterSqlBuilder.build(filter);
         String sql = "SELECT COUNT(*) FROM fact_incident WHERE " + built.whereClauseSql();
@@ -99,9 +123,28 @@ public class GeospatialQueryService {
     }
 
     private boolean boundariesAvailable() {
+        return resolveBoundaryResource().filter(Resource::isReadable).isPresent();
+    }
+
+    /**
+     * {@code boundaryGeojsonPath} starting with {@code "/"} is treated as a classpath resource
+     * under {@code static/} (the vendored default, {@code /geo/world-countries.geojson}, served
+     * automatically as a static asset too - this method just needs to confirm it's actually
+     * there). Anything else is treated as an absolute filesystem path, unchanged from this
+     * class's original design, so an admin can still swap in a different/richer boundary file
+     * at deployment time without a rebuild.
+     */
+    private Optional<Resource> resolveBoundaryResource() {
         if (boundaryGeojsonPath == null || boundaryGeojsonPath.isBlank()) {
-            return false;
+            return Optional.empty();
         }
-        return Files.isReadable(Path.of(boundaryGeojsonPath)) && !Files.isDirectory(Path.of(boundaryGeojsonPath));
+        if (boundaryGeojsonPath.startsWith("/")) {
+            return Optional.of(new ClassPathResource("static" + boundaryGeojsonPath));
+        }
+        Path path = Path.of(boundaryGeojsonPath);
+        if (!Files.isReadable(path) || Files.isDirectory(path)) {
+            return Optional.empty();
+        }
+        return Optional.of(new FileSystemResource(path));
     }
 }

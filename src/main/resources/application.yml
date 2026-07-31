@@ -51,21 +51,31 @@ management:
 # generated_report rows are immutable and permanent, so the files they point at must be too);
 # the test profile overrides this to a disposable temp directory (application-test.yml).
 #
-# Geospatial Workspace (Phase 9, Part B): both offline map tiles and choropleth boundary
-# polygons are genuine, undelivered deployment prerequisites (CLAUDE.md section 13, open item
-# 5) - neither is faked or hardcoded to a public tile/data server (zero-outbound-requests,
-# section 1). tile-url-template defaults to the vendored local placeholder grid tile (every
-# {x}/{y}/{z} request resolves to the same file); swapping in a real MBTiles-derived tile
-# server later is this one property changing, not a code change. boundary-geojson-path is
-# unset by default - the choropleth endpoint detects this and reports
-# boundariesAvailable=false rather than silently rendering a blank/broken layer. See
-# CLAUDE.md's "Phase 9 decisions, Part B" for the exact shape a boundary GeoJSON file needs.
+# Geospatial Workspace (Phase 9, Part B): offline map tiles remain a genuine, undelivered
+# deployment prerequisite (CLAUDE.md section 13, open item 5) - not faked or hardcoded to a
+# public tile server (zero-outbound-requests, section 1). tile-url-template defaults to the
+# vendored local placeholder grid tile (every {x}/{y}/{z} request resolves to the same file);
+# swapping in a real MBTiles-derived tile server later is this one property changing, not a
+# code change.
+#
+# Choropleth boundary polygons (user-directed reversal, post-Phase 9): boundary-geojson-path
+# now defaults to the vendored Natural Earth 1:110m admin-0 countries file (public domain, no
+# attribution required - static/geo/world-countries.geojson), so boundariesAvailable is true
+# out of the box in this environment. An admin can still point this at either another
+# classpath-relative static path (leading "/") or an arbitrary absolute filesystem path (e.g.
+# a richer 1:50m file) without a rebuild - see GeospatialQueryService.boundariesAvailable().
+# boundary-name-property is a comma-separated list of Natural Earth feature properties tried,
+# in order, when matching a polygon to a dim_country.name - there is no ISO-code column to
+# join on more robustly (a known, disclosed best-effort limitation covering historical/defunct
+# GTD-coded political entities with no modern polygon, and a handful of micro-states/
+# territories the 1:110m simplification omits entirely). See CLAUDE.md's "Phase 9 decisions,
+# Part B" and its choropleth-boundary-reversal addendum for the full rationale.
 gtd:
   reports:
     directory: ${user.home}/.gtd-platform/reports
   geospatial:
     tile-url-template: /img/map-placeholder-tile.png
-    boundary-geojson-path:
-    boundary-name-property: name
+    boundary-geojson-path: /geo/world-countries.geojson
+    boundary-name-property: NAME,ADMIN,NAME_LONG,NAME_EN,SOVEREIGNT,FORMAL_EN,BRK_NAME
 
 # No active profile by default - one of "local" or "test" must be selected explicitly.

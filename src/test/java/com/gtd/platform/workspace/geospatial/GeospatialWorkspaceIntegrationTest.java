@@ -13,7 +13,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,8 +109,29 @@ class GeospatialWorkspaceIntegrationTest extends PostgresIntegrationTestBase {
             assertThat(point.path("year").asInt()).isEqualTo(YEAR);
         }
 
-        // --- Boundary data is not configured in this environment - always a real, documented false ---
-        assertThat(unscopedData.path("boundariesAvailable").asBoolean()).isFalse();
+        // --- Boundary data is now vendored by default (the Natural Earth 1:110m file under
+        // static/geo/), so boundariesAvailable is real and true out of the box. ---
+        assertThat(unscopedData.path("boundariesAvailable").asBoolean()).isTrue();
+
+        // --- GET /api/geospatial/boundaries serves the real vendored GeoJSON ---
+        HttpResponse<String> boundariesResponse = client.getWithCookie("/api/geospatial/boundaries", cookie);
+        assertThat(boundariesResponse.statusCode()).isEqualTo(200);
+        JsonNode boundaries = JSON.readTree(boundariesResponse.body());
+        assertThat(boundaries.path("type").asText()).isEqualTo("FeatureCollection");
+        assertThat(boundaries.path("features").size()).isGreaterThan(100);
+        // Every one of this test's own synthetic countries must be resolvable from at least one
+        // of the configured name properties - proves the real matching data (not just file
+        // presence) is wired correctly end-to-end for the countries this test actually uses.
+        Set<String> geoNames = new HashSet<>();
+        for (JsonNode feature : boundaries.path("features")) {
+            JsonNode props = feature.path("properties");
+            for (String key : List.of("NAME", "ADMIN", "NAME_LONG", "NAME_EN", "SOVEREIGNT", "FORMAL_EN", "BRK_NAME")) {
+                if (props.hasNonNull(key)) {
+                    geoNames.add(props.path(key).asText());
+                }
+            }
+        }
+        assertThat(geoNames).contains("United States", "Canada", "Iraq", "Afghanistan", "Nigeria");
 
         // --- Choropleth: real per-country counts, matching the country-ranking data source ---
         JsonNode choropleth = unscopedData.path("choropleth");

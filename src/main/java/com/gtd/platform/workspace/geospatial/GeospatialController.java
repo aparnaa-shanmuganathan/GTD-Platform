@@ -8,8 +8,13 @@ import com.gtd.platform.shared.api.MapResponse;
 import com.gtd.platform.shared.db.DimAttackTypeRepository;
 import com.gtd.platform.shared.db.DimRegionRepository;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -41,15 +46,21 @@ public class GeospatialController {
     private final DimRegionRepository regionRepository;
     private final DimAttackTypeRepository attackTypeRepository;
     private final String tileUrlTemplate;
+    private final List<String> boundaryNameProperties;
 
     public GeospatialController(GeospatialQueryService geospatialQueryService, JdbcTemplate jdbcTemplate,
             DimRegionRepository regionRepository, DimAttackTypeRepository attackTypeRepository,
-            @Value("${gtd.geospatial.tile-url-template}") String tileUrlTemplate) {
+            @Value("${gtd.geospatial.tile-url-template}") String tileUrlTemplate,
+            @Value("${gtd.geospatial.boundary-name-property}") String boundaryNameProperty) {
         this.geospatialQueryService = geospatialQueryService;
         this.jdbcTemplate = jdbcTemplate;
         this.regionRepository = regionRepository;
         this.attackTypeRepository = attackTypeRepository;
         this.tileUrlTemplate = tileUrlTemplate;
+        this.boundaryNameProperties = Arrays.stream(boundaryNameProperty.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     @GetMapping("/workspace/geospatial")
@@ -62,6 +73,7 @@ public class GeospatialController {
         model.addAttribute("minYear", yearBounds.minYear());
         model.addAttribute("maxYear", yearBounds.maxYear());
         model.addAttribute("tileUrlTemplate", tileUrlTemplate);
+        model.addAttribute("boundaryNameProperties", boundaryNameProperties);
         model.addAttribute("regions", regionRepository.findAll().stream()
                 .filter(r -> !r.isUnknown())
                 .sorted(Comparator.comparing(r -> r.getName()))
@@ -82,6 +94,23 @@ public class GeospatialController {
             effectiveRequest.setFilter(new AnalyticalFilterRequest());
         }
         return ApiResponse.success(geospatialQueryService.queryPoints(effectiveRequest));
+    }
+
+    /**
+     * Raw boundary GeoJSON bytes for the client's choropleth layer - the one other REPORT-style
+     * exemption from section 9's "all endpoints are POST, standard envelope" convention (same
+     * reasoning as {@code POST /api/report/download}, Phase 6): no filter parameters apply (a
+     * country's polygon doesn't change per canonical filter, only its choropleth *count* does,
+     * which stays on {@link #points}), and the payload is raw GeoJSON, not the {@code
+     * success}/{@code data}/{@code meta}/{@code error} envelope. Only called by the client when
+     * {@link MapResponse#boundariesAvailable()} is {@code true}.
+     */
+    @GetMapping(value = "/api/geospatial/boundaries", produces = "application/geo+json")
+    @ResponseBody
+    public ResponseEntity<byte[]> boundaries() {
+        return geospatialQueryService.readBoundaryGeojson()
+                .map(bytes -> ResponseEntity.ok().contentType(MediaType.valueOf("application/geo+json")).body(bytes))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     /**
