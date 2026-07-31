@@ -18,29 +18,42 @@
 <div class="home-shell">
   <div class="home-card">
     <div class="panel home-panel">
-      <div class="brand" style="justify-content:center;margin-bottom:18px;">
-        <div class="brand-mark"></div>
-        <div class="brand-text">
-          <span class="brand-title">GTD PLATFORM</span>
-          <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      <div class="auth-topline">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div class="brand-text">
+            <span class="brand-title">GTD PLATFORM</span>
+            <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+          </div>
         </div>
+        <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
       </div>
-      <p th:if="${username != null}">Signed in as <span class="home-username" th:text="${username}">admin</span>.</p>
-      <p th:unless="${username != null}" class="field-hint">Browsing without signing in — dataset import and configuration changes require an admin session.</p>
-      <p class="field-hint">All 15 analytical and administrative workspaces are built - use the sidebar from any workspace, or search below, to navigate.</p>
-      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
-      <a th:href="@{/workspace/executive}" class="btn btn-primary btn-block" style="margin-top:18px;">Open Executive Workspace</a>
-      <a th:href="@{/workspace/country}" class="btn btn-block" style="margin-top:10px;">Open Country Workspace</a>
-      <a th:href="@{/workspace/report}" class="btn btn-block" style="margin-top:10px;">Open Report Workspace</a>
+
+      <p th:if="${username != null}" class="field-hint">Signed in as <span class="home-username" th:text="${username}">admin</span>.</p>
+      <p th:unless="${username != null}" class="field-hint">Every workspace is open to browse. Signing in as admin is only needed to import data or change configuration.</p>
+
+      <a th:href="@{/workspace/executive}" class="btn btn-primary btn-block" style="margin-top:18px;">Open Workspace</a>
+
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-block" style="margin-top:10px;">Use as Admin</a>
       <form th:if="${username != null}" method="post" th:action="@{/logout}" style="margin-top:10px;">
         <button type="submit" class="btn btn-block">Sign out</button>
       </form>
-      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-block" style="margin-top:10px;">Admin sign-in</a>
+
+      <div th:replace="~{fragments/searchmodal :: trigger}"></div>
+
       <div th:replace="~{fragments/footer :: citation}"></div>
     </div>
   </div>
 </div>
 <div th:replace="~{fragments/searchmodal :: modal}"></div>
 <script th:src="@{/js/search.js}"></script>
+<script>
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('gtd-theme', next);
+  });
+</script>
 </body>
 </html>
