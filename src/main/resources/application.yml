@@ -50,8 +50,22 @@ management:
 # from for download. Under the OS user's home directory by default (never a temp directory -
 # generated_report rows are immutable and permanent, so the files they point at must be too);
 # the test profile overrides this to a disposable temp directory (application-test.yml).
+#
+# Geospatial Workspace (Phase 9, Part B): both offline map tiles and choropleth boundary
+# polygons are genuine, undelivered deployment prerequisites (CLAUDE.md section 13, open item
+# 5) - neither is faked or hardcoded to a public tile/data server (zero-outbound-requests,
+# section 1). tile-url-template defaults to the vendored local placeholder grid tile (every
+# {x}/{y}/{z} request resolves to the same file); swapping in a real MBTiles-derived tile
+# server later is this one property changing, not a code change. boundary-geojson-path is
+# unset by default - the choropleth endpoint detects this and reports
+# boundariesAvailable=false rather than silently rendering a blank/broken layer. See
+# CLAUDE.md's "Phase 9 decisions, Part B" for the exact shape a boundary GeoJSON file needs.
 gtd:
   reports:
     directory: ${user.home}/.gtd-platform/reports
+  geospatial:
+    tile-url-template: /img/map-placeholder-tile.png
+    boundary-geojson-path:
+    boundary-name-property: name
 
 # No active profile by default - one of "local" or "test" must be selected explicitly.

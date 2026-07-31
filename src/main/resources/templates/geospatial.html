@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>Geospatial Workspace — GTD Analytical Platform</title>
+<link rel="stylesheet" th:href="@{/css/gtd-theme.css}">
+<link rel="stylesheet" th:href="@{/css/leaflet.css}">
+<link rel="stylesheet" th:href="@{/css/MarkerCluster.css}">
+<link rel="stylesheet" th:href="@{/css/MarkerCluster.Default.css}">
+<link rel="stylesheet" th:href="@{/css/leaflet.draw.css}">
+<script th:src="@{/js/leaflet.js}"></script>
+<script th:src="@{/js/leaflet.markercluster.js}"></script>
+<script th:src="@{/js/leaflet-heat.js}"></script>
+<script th:src="@{/js/leaflet.draw.js}"></script>
+<script>
+  (function() {
+    var saved = localStorage.getItem('gtd-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  })();
+</script>
+</head>
+<body>
+<div class="workspace-shell">
+  <div class="topbar">
+    <div class="brand">
+      <a th:href="@{/}" class="icon-btn" aria-label="Home" style="border:none;background:transparent;">&#8962;</a>
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <span class="brand-title">GTD PLATFORM</span>
+        <span class="brand-sub">ANALYTICAL &amp; DECISION SUPPORT</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Toggle dark/light theme">&#9789;</button>
+      <div class="session-chip" th:if="${username != null}">
+        <div class="avatar" th:text="${#strings.substring(username,0,1).toUpperCase()}">A</div>
+        <span th:text="${username}">admin</span>
+      </div>
+      <form method="post" th:action="@{/logout}" th:if="${username != null}" style="margin:0;">
+        <button type="submit" class="btn btn-sm">Sign out</button>
+      </form>
+      <a th:unless="${username != null}" th:href="@{/login}" class="btn btn-sm">Admin sign-in</a>
+    </div>
+  </div>
+
+  <div th:replace="~{fragments/sidebar :: nav('geospatial')}"></div>
+
+  <main class="main">
+    <div class="view-header">
+      <div>
+        <div class="view-eyebrow">ADC-MAP-001</div>
+        <div class="view-title">Geospatial Workspace</div>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-chip">
+        <label for="filterDate">Date range</label>
+        <select id="filterDate">
+          <option value="full" th:text="${minYear != null ? minYear + ' – ' + maxYear + ' (full)' : 'Full range'}">Full range</option>
+          <option value="last10">Last 10 years</option>
+          <option value="last5">Last 5 years</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterRegion">Region</label>
+        <select id="filterRegion">
+          <option value="">All regions</option>
+          <option th:each="region : ${regions}" th:value="${region.id}" th:text="${region.name}"></option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterAttack">Attack type</label>
+        <select id="filterAttack">
+          <option value="">All types</option>
+          <option th:each="attackType : ${attackTypes}" th:value="${attackType.id}" th:text="${attackType.name}"></option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <label for="filterLayer">Point layer</label>
+        <select id="filterLayer">
+          <option value="cluster">Marker clusters</option>
+          <option value="heat">Heatmap</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-sm" id="clearPolygonBtn" style="display:none;">Clear drawn region</button>
+    </div>
+
+    <p class="field-hint" id="geocodedHint" style="margin:0 0 10px;"></p>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Incident map</div>
+        <div class="panel-tag">CAC-AN-004 &middot; SVC-GEO</div>
+      </div>
+      <p class="field-hint" style="margin:-6px 0 12px;">
+        Base map tiles are a local placeholder (offline tile package not yet installed - see
+        CLAUDE.md section 13, open item 5). Use the draw tool (top-right of the map) to filter
+        incidents to a hand-drawn region.
+      </p>
+      <div id="geoMapWrap" style="height:520px;border:1px solid var(--border);border-radius:8px;"></div>
+      <div id="boundaryUnavailableNotice" class="field-hint" style="margin-top:10px;display:none;">
+        Choropleth boundary data is not installed for this deployment - per-country incident
+        counts below are real and complete, but cannot be drawn as colored country polygons
+        until a boundary GeoJSON file is configured (<code>gtd.geospatial.boundary-geojson-path</code>).
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Timeline</div>
+        <div class="panel-tag">SVC-GEO</div>
+      </div>
+      <div class="timeline-controls" style="display:flex;align-items:center;gap:12px;">
+        <button type="button" class="btn btn-sm" id="timelinePlayBtn">Play</button>
+        <input type="range" id="timelineSlider" style="flex:1;" min="0" max="0" value="0" step="1">
+        <span id="timelineYearLabel" style="min-width:48px;text-align:right;">All years</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Per-country incident counts (choropleth data)</div>
+        <div class="panel-tag">CAC-AN-004 &middot; SVC-GEO</div>
+      </div>
+      <div id="choroplethRanking"></div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: citation}"></div>
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack" style="position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:80;max-width:340px;"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  window.INITIAL_MAP = /*[[${map}]]*/ {};
+  window.MIN_YEAR = /*[[${minYear}]]*/ null;
+  window.MAX_YEAR = /*[[${maxYear}]]*/ null;
+  window.TILE_URL_TEMPLATE = /*[[${tileUrlTemplate}]]*/ '/img/map-placeholder-tile.png';
+  /*]]>*/
+</script>
+<script th:src="@{/js/geospatial.js}"></script>
+</body>
+</html>
